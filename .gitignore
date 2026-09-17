@@ -1,0 +1,42 @@
+# ── Secrets. Committing any of these publishes them. ──────────────────────────
+# your Gemini API key and your own settings
+config/api_keys.json
+.env
+.env.*
+
+# ── Personal data ─────────────────────────────────────────────────────────────
+# what the tutor remembers about you
+memory/long_term.json
+memory/*.db
+# your own speech, transcribed, scored and tracked — local only
+english/
+slovak/
+
+# ── Python build noise ────────────────────────────────────────────────────────
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+build/
+dist/
+*.egg-info/
+.eggs/
+
+# ── Virtual environments ──────────────────────────────────────────────────────
+.venv/
+venv/
+env/
+ENV/
+
+# ── Editors and operating systems ─────────────────────────────────────────────
+.vscode/
+.idea/
+*.swp
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# ── Runtime output ────────────────────────────────────────────────────────────
+*.log
+*.log.*
+logs/

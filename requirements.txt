@@ -1,0 +1,13 @@
+# ── Core: HUD, audio, Gemini Live ─────────────────────────────────────────────
+PyQt6
+sounddevice
+numpy
+google-genai>=2.8.0
+
+# ── Windows-only: nicer desktop shortcut (pip skips it elsewhere) ─────────────
+pywin32;    sys_platform == "win32"
+
+# ── Optional: local wake word ("Hey Talvis") ──────────────────────────────────
+# Deliberately NOT installed by default — it's opt-in. Enable it (and download
+# the tiny model) with one click from ⚙ → WAKE WORD in the app, or install it
+# yourself with:  pip install openwakeword
