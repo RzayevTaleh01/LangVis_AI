@@ -1,12 +1,12 @@
 """
-tutor/analysis.py — reading what the learner said.
+tutor/analysis.py - reading what the learner said.
 
 Two kinds of utterance reach here:
 
-  * one in the target language — measured on the CEFR scale, every mistake
+  * one in the target language - measured on the CEFR scale, every mistake
     tied to a skill id from the curriculum, every structure used correctly
     recorded as evidence for that skill;
-  * one in the learner's own language — a sign they could not say it in the
+  * one in the learner's own language - a sign they could not say it in the
     target language. The words they were missing become vocabulary to reuse.
 
 Language detection is local and cheap because it runs on every utterance; the
@@ -213,13 +213,13 @@ def _skill_catalogue(skills: dict) -> str:
 def analysis_prompt(text: str, *, language_name: str, native_language: str,
                     level: str, unit_title: str, unit_skills: list[str],
                     skills: dict, strictness: str,
-                    target_words: list | None = None,
-                    target_phrasals: list | None = None) -> str:
+                    live_dictionary: list | None = None) -> str:
     targets = ", ".join(unit_skills) or "none"
     lexis = ""
-    if target_words or target_phrasals:
-        lexis = ("\nWORDS this unit is installing: " + ", ".join(target_words or [])
-                 + "\nPHRASAL VERBS: " + ", ".join(target_phrasals or []) + "\n")
+    if live_dictionary:
+        lexis = ("\nWords and phrasal verbs already waiting in their dictionary "
+                 "(do not suggest these again): "
+                 + ", ".join(live_dictionary) + "\n")
     return f"""You are a {language_name} teacher analysing ONE sentence spoken aloud by
 a learner. Their native language is {native_language}. Their level is about {level}.
 The lesson right now is "{unit_title}", practising: {targets}.{lexis}
@@ -250,6 +250,9 @@ Return ONLY a JSON object:
   "improved": "the same meaning said one level better, using a target word or phrasal verb where it fits naturally",
   "improved_uses": ["the target words or phrasal verbs your improved version used"],
   "praise": "if the sentence was already correct: three words on what was good, otherwise empty",
+  "topic": "two or three words for what they are talking about",
+  "suggest_words": ["3 to 5 {language_name} words a speaker would use on THIS topic, one step above {level}, that they did not use"],
+  "suggest_phrasals": ["1 to 3 natural phrasal verbs for THIS topic at their level"],
   "native_words": [{{"native": "word in {native_language}", "target": "{language_name} word"}}],
   "upgrades": [{{"simple": "plain word they used", "better": "stronger word one level up"}}]
 }}
@@ -264,6 +267,11 @@ RULES:
 - "native_words": {native_language} words mixed into the sentence, with the
   {language_name} word they needed. Empty if none.
 - "upgrades": at most 1, empty when the wording is fine.
+- "suggest_words" / "suggest_phrasals": build the learner's vocabulary out of
+  their OWN subject. If they are talking about their job, suggest work words; if
+  about football, football words. Never grammar terms, never words they just
+  used, never anything two levels above them. Single words or short fixed
+  phrases ("run late", "make up my mind").
 - "is_target_language": false if the sentence is not mainly {language_name}.
 """
 
@@ -301,6 +309,13 @@ def analyse(text: str, **ctx) -> dict:
     for key in ("corrected", "improved", "praise"):
         data[key] = str(data.get(key) or "").strip()
     data["improved_uses"] = [str(x) for x in (data.get("improved_uses") or [])][:3]
+    data["topic"] = str(data.get("topic") or "").strip()[:40]
+    data["suggest_words"] = [str(x).strip().lower()
+                             for x in (data.get("suggest_words") or [])
+                             if str(x).strip()][:5]
+    data["suggest_phrasals"] = [str(x).strip().lower()
+                                for x in (data.get("suggest_phrasals") or [])
+                                if str(x).strip()][:3]
     if not data["corrected"]:
         data["corrected"] = text.strip()
     return data
@@ -367,7 +382,7 @@ def drill(*, language_name: str, native_language: str, level: str,
           technique: str = "") -> str:
     """One spoken exercise, built as a named teaching technique.
 
-    Without `technique` a model writes a quiz — five unrelated gap-fills. Given
+    Without `technique` a model writes a quiz - five unrelated gap-fills. Given
     the steps of a substitution drill, a dictogloss or a 4/3/2, it writes that
     instead, which is what the unit is supposed to be practised with.
     """

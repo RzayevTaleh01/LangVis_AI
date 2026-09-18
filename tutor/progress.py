@@ -1,5 +1,5 @@
 """
-tutor/progress.py — everything the tutor knows about the learner.
+tutor/progress.py - everything the tutor knows about the learner.
 
 One JSON file per language (english/level.json, later slovak/level.json) holds:
 
@@ -35,6 +35,8 @@ SUBSTANTIVE_WORDS = 5          # shorter sentences are practice, not evidence
 # A word used once is luck; used twice in the learner's own sentences it is
 # theirs. That second use is what ticks it off the unit's checklist.
 LEXIS_CHECKED_USES = 2
+MAX_DECK = 24                  # suggestions kept live at once
+MAX_LEXIS = 2000               # the dictionary is the learner's, so it is large
 
 SKILL_WINDOW = 12              # recent uses that decide a skill's mastery
 REPEAT_ERRORS = 3              # errors in the last 8 uses that trigger a focus drill
@@ -86,7 +88,8 @@ def _empty_state() -> dict:
         "samples": [],
         "days": {},
         "skills": {},
-        "lexis": {},        # target word / phrasal -> {kind, unit, uses, last}
+        "lexis": {},        # the dictionary: item -> {kind, uses, offers, topic}
+        "deck": [],         # suggestions waiting to be used, freshest first
         "course": _empty_course(),
         "vocab": {},
         "last_spoken": 0.0,
@@ -163,6 +166,7 @@ def _migrate_v1(state: dict) -> None:
     state["course"] = state.get("course") or _empty_course()
     state["vocab"] = state.get("vocab") or {}
     state["lexis"] = state.get("lexis") or {}
+    state["deck"] = state.get("deck") or []
     state["version"] = 2
 
 
@@ -175,7 +179,7 @@ def scoring_samples(state: dict, window: int = ROLLING_WINDOW) -> list:
 
 
 def effective_level(state: dict) -> tuple[str, float, bool]:
-    """(band, score, measured?) — the stated level is a prior worth
+    """(band, score, measured?) - the stated level is a prior worth
     PRIOR_WEIGHT sentences that fades as real evidence accumulates."""
     scoring = scoring_samples(state)
     declared = state.get("declared_level") or "A2"
@@ -210,7 +214,7 @@ def trend(state: dict, days_back: int = 7) -> tuple[float, str]:
     scored = [(k, v) for k, v in sorted(state.get("days", {}).items())
               if (v.get("score_n") or 0) > 0]
     if len(scored) < 2:
-        return 0.0, "—"
+        return 0.0, "-"
     latest_key, latest = scored[-1]
     cutoff = (date.fromisoformat(latest_key) - timedelta(days=days_back)).isoformat()
     older = [p for p in scored[:-1] if p[0] <= cutoff] or [scored[0]]
@@ -240,7 +244,7 @@ def _add_example(sk: dict, wrong: str, right: str) -> None:
 
 
 def mastery(sk: dict | None) -> int | None:
-    """0–100 from the recent window, errors counting double. None = no evidence."""
+    """0-100 from the recent window, errors counting double. None = no evidence."""
     recent = (sk or {}).get("recent") or []
     if not recent:
         return None
@@ -304,7 +308,7 @@ def position(state: dict, lang: dict) -> dict:
 
 
 def unit_progress(state: dict, lang: dict) -> tuple[int, list[str]]:
-    """(0–100, what is still missing) for the current unit."""
+    """(0-100, what is still missing) for the current unit."""
     pos = position(state, lang)
     unit = pos.get("unit")
     if pos.get("finished"):
@@ -319,15 +323,6 @@ def unit_progress(state: dict, lang: dict) -> tuple[int, list[str]]:
     parts = [min(1.0, pos["practice"] / cur.UNIT_MIN_PRACTICE)]
     if pos["practice"] < cur.UNIT_MIN_PRACTICE:
         missing.append(f"{cur.UNIT_MIN_PRACTICE - pos['practice']} more sentences")
-    lexis = lexis_checklist(state, unit)
-    parts.append(min(1.0, lexis["words_done"] / max(1, lexis["words_needed"])))
-    parts.append(min(1.0, lexis["phrasals_done"] / max(1, lexis["phrasals_needed"])))
-    if lexis["words_done"] < lexis["words_needed"]:
-        missing.append(f"use {lexis['words_needed'] - lexis['words_done']} more "
-                       f"new words")
-    if lexis["phrasals_done"] < lexis["phrasals_needed"]:
-        missing.append(f"use {lexis['phrasals_needed'] - lexis['phrasals_done']} "
-                       f"more phrasal verb(s)")
     for sid in unit["skills"]:
         sk = state.get("skills", {}).get(sid)
         m = mastery(sk) or 0
@@ -342,21 +337,20 @@ def unit_progress(state: dict, lang: dict) -> tuple[int, list[str]]:
 
 
 def _unit_passed(state: dict, lang: dict, unit: dict) -> bool:
+    """A unit is a grammar unit: enough spoken, and every target skill strong.
+
+    Vocabulary is deliberately not a condition - it no longer belongs to a unit
+    at all, it belongs to the learner and grows with their own topics.
+    """
     practice = int(state["course"].get("unit_practice", 0))
     skills = state.get("skills", {})
-    lexis = lexis_checklist(state, unit)
-    lexis_ok = (lexis["words_done"] >= lexis["words_needed"]
-                and lexis["phrasals_done"] >= lexis["phrasals_needed"])
-    grammar_ok = all(skill_status(skills.get(sid)) == "strong"
-                     for sid in unit["skills"])
-    if practice >= cur.UNIT_MIN_PRACTICE and grammar_ok and lexis_ok:
+    if practice >= cur.UNIT_MIN_PRACTICE and all(
+            skill_status(skills.get(sid)) == "strong" for sid in unit["skills"]):
         return True
-    # Persistence: a skill or a word the analyser rarely sees should not trap
-    # the learner in one unit forever. Plenty of practice at a decent mastery,
-    # with at least half the vocabulary used, passes.
-    return (practice >= cur.UNIT_MIN_PRACTICE * PERSISTENCE_FACTOR
-            and all((mastery(skills.get(sid)) or 0) >= 55 for sid in unit["skills"])
-            and lexis["words_done"] * 2 >= lexis["words_needed"])
+    # Persistence: a skill the analyser rarely sees used should not trap the
+    # learner in one unit forever. Plenty of practice at a decent mastery passes.
+    return (practice >= cur.UNIT_MIN_PRACTICE * PERSISTENCE_FACTOR and all(
+        (mastery(skills.get(sid)) or 0) >= 55 for sid in unit["skills"]))
 
 
 def advance(state: dict, lang: dict, force: bool = False) -> list[str]:
@@ -409,8 +403,7 @@ def advance(state: dict, lang: dict, force: bool = False) -> list[str]:
 # ── Recording ────────────────────────────────────────────────────────────────
 
 def record_target(state: dict, lang: dict, text: str, analysis: dict,
-                  n_words: int, used_lexis: list | None = None,
-                  lexis_kinds: dict | None = None) -> dict:
+                  n_words: int, used_lexis: list | None = None) -> dict:
     """Fold one analysed target-language sentence into the state."""
     skills = state.setdefault("skills", {})
     day = _day(state)
@@ -461,7 +454,7 @@ def record_target(state: dict, lang: dict, text: str, analysis: dict,
     for w in analysis.get("native_words", []):
         add_vocab(state, w.get("target", ""), w.get("native", ""))
 
-    newly_checked = record_lexis(state, used_lexis or [], lexis_kinds or {})
+    newly_checked = record_lexis(state, used_lexis or [])
 
     events = advance(state, lang)
     after = band(effective_level(state)[1])
@@ -492,48 +485,97 @@ def record_heard(state: dict) -> None:
     _day(state)["all_utterances"] += 1
 
 
-def record_lexis(state: dict, used: list, kinds: dict) -> list:
-    """Count the target words and phrasal verbs this sentence used.
+def offer_lexis(state: dict, words: list, phrasals: list, topic: str = "") -> None:
+    """Put the words and phrasal verbs the analyser suggested into the learner's
+    dictionary, and to the front of the deck.
 
-    Returns the items that crossed into "checked" on this sentence, so the
-    tutor can acknowledge them once and move on.
+    The course carries no word lists: a fixed one fights the learner, who wants
+    to talk about their own work and their own weekend. So vocabulary arrives
+    from whatever they are actually saying - the analyser proposes items one
+    step above their level on that topic, and they queue here until used.
     """
+    lexis = state.setdefault("lexis", {})
+    deck = state.setdefault("deck", [])
+    for item, kind in [(w, "word") for w in words] + [(p, "phrasal") for p in phrasals]:
+        key = str(item or "").strip().lower()
+        if not key or len(key) > 40:
+            continue
+        entry = lexis.setdefault(key, {"kind": kind, "uses": 0, "offers": 0,
+                                       "first": _today()})
+        entry["kind"] = kind
+        entry["offers"] = entry.get("offers", 0) + 1
+        entry["topic"] = topic or entry.get("topic", "")
+        entry["offered_at"] = _now_iso()
+        if entry["uses"] < LEXIS_CHECKED_USES:
+            if key in deck:
+                deck.remove(key)
+            deck.insert(0, key)
+    state["deck"] = deck[:MAX_DECK]
+
+
+def record_lexis(state: dict, used: list) -> list:
+    """Count a use of anything already in the dictionary, and report what has
+    just crossed into learned, so the tutor can acknowledge it once."""
     lexis = state.setdefault("lexis", {})
     newly = []
     for item in used:
-        entry = lexis.setdefault(item, {"kind": kinds.get(item, "word"),
-                                        "uses": 0, "first": _today()})
-        before = entry["uses"]
+        key = str(item).strip().lower()
+        entry = lexis.get(key)
+        if entry is None:
+            continue
+        before = entry.get("uses", 0)
         entry["uses"] = before + 1
         entry["last"] = _now_iso()
-        entry["kind"] = kinds.get(item, entry.get("kind", "word"))
         if before < LEXIS_CHECKED_USES <= entry["uses"]:
-            newly.append(item)
+            entry["learned_on"] = _today()
+            newly.append(key)
+            if key in state.get("deck", []):
+                state["deck"].remove(key)
     return newly
 
 
-def lexis_checklist(state: dict, unit: dict | None) -> dict:
-    """The unit's words and phrasal verbs, each with how often it has been used
-    and whether it counts as learned. This is what the checklist draws."""
+def active_deck(state: dict, words_limit: int = 6, phrasals_limit: int = 3) -> list:
+    """What the tutor should be pushing right now: the newest suggestions that
+    are not the learner's yet, freshest first."""
     lexis = state.get("lexis", {})
+    out, w, p = [], 0, 0
+    for key in state.get("deck", []):
+        entry = lexis.get(key)
+        if not entry or entry.get("uses", 0) >= LEXIS_CHECKED_USES:
+            continue
+        kind = entry.get("kind", "word")
+        if kind == "phrasal" and p < phrasals_limit:
+            p += 1
+        elif kind == "word" and w < words_limit:
+            w += 1
+        else:
+            continue
+        out.append({"text": key, "kind": kind, "uses": entry.get("uses", 0),
+                    "checked": False, "topic": entry.get("topic", "")})
+    return out
 
-    def rows(items: list) -> list:
-        out = []
-        for item in items or []:
-            uses = int(lexis.get(item, {}).get("uses", 0))
-            out.append({"text": item, "uses": uses,
-                        "checked": uses >= LEXIS_CHECKED_USES})
-        return out
 
-    words_rows = rows((unit or {}).get("words", []))
-    phrasal_rows = rows((unit or {}).get("phrasals", []))
+def known_items(state: dict) -> list:
+    """Every item in the dictionary, for matching against a new sentence."""
+    return list(state.get("lexis", {}).keys())
+
+
+def dictionary(state: dict) -> dict:
+    """The dictionary for the panel: what is live now, what has been learned."""
+    lexis = state.get("lexis", {})
+    learned = [(k, v) for k, v in lexis.items()
+               if v.get("uses", 0) >= LEXIS_CHECKED_USES]
+    learned.sort(key=lambda kv: kv[1].get("last", ""), reverse=True)
     return {
-        "words": words_rows,
-        "phrasals": phrasal_rows,
-        "words_done": sum(1 for r in words_rows if r["checked"]),
-        "phrasals_done": sum(1 for r in phrasal_rows if r["checked"]),
-        "words_needed": cur.UNIT_WORDS_NEEDED,
-        "phrasals_needed": cur.UNIT_PHRASALS_NEEDED,
+        "active": active_deck(state),
+        "recent": [{"text": k, "kind": v.get("kind", "word"),
+                    "uses": v.get("uses", 0), "checked": True}
+                   for k, v in learned[:8]],
+        "words": sum(1 for _k, v in learned if v.get("kind") == "word"),
+        "phrasals": sum(1 for _k, v in learned if v.get("kind") == "phrasal"),
+        "learning": sum(1 for v in lexis.values()
+                        if 0 < v.get("uses", 0) < LEXIS_CHECKED_USES),
+        "needed": LEXIS_CHECKED_USES,
     }
 
 
@@ -596,7 +638,7 @@ def words_to_reuse(state: dict, limit: int = 6) -> list[tuple[str, dict]]:
 # ── The lesson plan ──────────────────────────────────────────────────────────
 
 def lesson_plan(state: dict, lang: dict, native_language: str) -> str:
-    """The plan the tutor teaches from — injected into the session prompt and
+    """The plan the tutor teaches from - injected into the session prompt and
     returned by the tool when the plan changes mid-lesson."""
     level, score, measured = effective_level(state)
     pos = position(state, lang)
@@ -627,30 +669,14 @@ def lesson_plan(state: dict, lang: dict, native_language: str) -> str:
                 f"{progress}% done.",
                 "  Target grammar: " + "; ".join(
                     f"{skills[s][0]} ({skills[s][2]})" for s in unit["skills"]),
-                f"  Theme / vocabulary: {unit['theme']}.",
-                "  Model sentences to get them producing (use these patterns, not "
-                "these exact words): " + " | ".join(unit.get("examples", [])),
-                f"  Speaking task: {unit['task']}",
+                "  Model sentences (the pattern, not the words to repeat): "
+                + " | ".join(unit.get("examples", [])),
                 f"  Goal: the learner can {unit['can_do']}.",
                 f"  Stage emphasis: {cur.STAGE_EMPHASIS.get(stage['id'], '')}.",
             ]
-            lexis = lexis_checklist(state, unit)
-            todo_w = [r["text"] for r in lexis["words"] if not r["checked"]]
-            todo_p = [r["text"] for r in lexis["phrasals"] if not r["checked"]]
-            done_w = [r["text"] for r in lexis["words"] if r["checked"]]
-            lines += [
-                "  WORDS to install this unit (feed them into whatever the "
-                "learner talks about, then make them use each one twice): "
-                + (", ".join(todo_w) if todo_w else "all done"),
-                "  PHRASAL VERBS to install: "
-                + (", ".join(todo_p) if todo_p else "all done"),
-            ]
-            if done_w:
-                lines.append("  Already theirs (reuse, do not re-teach): "
-                             + ", ".join(done_w))
             methods = cur.methods_of(unit)
             if methods:
-                lines.append("  HOW TO PRACTISE IT — run these techniques in this "
+                lines.append("  HOW TO PRACTISE IT - run these techniques in this "
                              "order, not a quiz:")
                 for m in methods:
                     lines.append(f"    · {m['name']} ({m['goal']}): {m['how']}")
@@ -664,9 +690,27 @@ def lesson_plan(state: dict, lang: dict, native_language: str) -> str:
         if missing:
             lines.append("  Still missing: " + "; ".join(missing[:4]) + ".")
 
+    book = dictionary(state)
+    if book["active"]:
+        lines.append("LIVE DICTIONARY - words and phrasal verbs from what THEY "
+                     "have been talking about. Work these into your own turns, "
+                     "then ask something they cannot answer without them. Two "
+                     "uses of their own and the item is theirs:")
+        for item in book["active"]:
+            lines.append(f"  \u00b7 {item['text']} ({item['kind']}"
+                         + (f", their topic: {item['topic']}" if item["topic"] else "")
+                         + (f", used {item['uses']}/{book['needed']}"
+                            if item["uses"] else "") + ")")
+    lines.append(f"Dictionary so far: {book['words']} words and "
+                 f"{book['phrasals']} phrasal verbs learned, "
+                 f"{book['learning']} half-way there.")
+    lines.append("Every sentence they say, you also suggest ONE new word or "
+                 "phrasal verb that fits what they are talking about, one step "
+                 "above their level - in a sentence, never as a definition.")
+
     focus = focus_skills(state, lang)
     if focus:
-        lines.append("FOCUS — their real repeated weak points. Fix these first:")
+        lines.append("FOCUS - their real repeated weak points. Fix these first:")
         for i, (sid, sk) in enumerate(focus, 1):
             name, _b, hint = skills[sid]
             ex = sk.get("examples", [])[-2:]
@@ -693,8 +737,8 @@ def syllabus(state: dict, lang: dict) -> list[dict]:
     """The whole course in order, each unit marked done / current / to come.
 
     A learner who cannot see the road does not believe there is one. This is
-    the same data the tutor teaches from — stages, units, target grammar, the
-    model sentences and the speaking task — with their own position in it.
+    the same data the tutor teaches from - stages, units, target grammar, the
+    model sentences and the speaking task - with their own position in it.
     """
     pos = position(state, lang)
     completed = set((state.get("course") or {}).get("completed", []))
@@ -721,10 +765,9 @@ def syllabus(state: dict, lang: dict) -> list[dict]:
                 "status": status, "progress": progress, "missing": missing,
                 "skills": [names[s][0] for s in unit["skills"] if s in names],
                 "hints": [names[s][2] for s in unit["skills"] if s in names],
-                "theme": unit["theme"], "task": unit["task"],
                 "can_do": unit["can_do"], "examples": list(unit.get("examples", [])),
                 "methods": cur.methods_of(unit),
-                "lexis": lexis_checklist(state, unit),
+                "tips": [cur.skill_tip(sid, lang["skills"]) for sid in unit["skills"]],
             })
         in_review = (si == pos.get("stage_index")
                      and pos.get("unit") is None and not pos.get("finished"))
@@ -749,7 +792,7 @@ def ui_status(state: dict, lang: dict) -> dict:
     return {
         "level": level, "score": round(score), "measured": measured,
         "goal": state.get("goal_level", "B2"),
-        "stage": (pos.get("stage") or {}).get("id", "—"),
+        "stage": (pos.get("stage") or {}).get("id", "-"),
         "unit_no": pos.get("number", 0), "unit_total": pos.get("total", 0),
         "unit_title": ("Course complete" if pos.get("finished") else
                        unit["title"] if unit else "Stage review"),
@@ -757,7 +800,7 @@ def ui_status(state: dict, lang: dict) -> dict:
         "focus": [{"name": lang["skills"][sid][0], "mastery": mastery(sk) or 0}
                   for sid, sk in focus_skills(state, lang)],
         "sentences_today": _day(state).get("english_utterances", 0),
-        "lexis": lexis_checklist(state, unit),
+        "dictionary": dictionary(state),
         "paused": bool(state.get("paused")),
     }
 
@@ -777,13 +820,13 @@ def render_log(path: Path, state: dict, lang: dict) -> None:
     unit = pos.get("unit")
 
     out = [f"# {lang['name']} progress", "",
-           "_Written by LangVis. Regenerated on every update — edits by hand are "
+           "_Written by LangVis. Regenerated on every update - edits by hand are "
            "overwritten; `level.json` holds the raw numbers._", "",
            "## Where you are", "",
            f"- **Level:** **{level}** ({score:.0f}/100)"
-           + ("" if measured else " — still mostly your own estimate"),
+           + ("" if measured else " - still mostly your own estimate"),
            f"- **Goal:** {state.get('goal_level', 'B2')}",
-           f"- **Stage:** {(pos.get('stage') or {}).get('id', '—')} "
+           f"- **Stage:** {(pos.get('stage') or {}).get('id', '-')} "
            f"{(pos.get('stage') or {}).get('title', '')}",
            f"- **Unit:** {pos.get('number')}/{pos.get('total')} — "
            + ("course complete" if pos.get("finished") else
@@ -792,15 +835,16 @@ def render_log(path: Path, state: dict, lang: dict) -> None:
            f"- **Practised:** {totals.get('target_utterances', 0)} sentences, "
            f"{totals.get('words', 0)} words; fell back to your own language "
            f"{totals.get('native_utterances', 0)} times"]
+    book = dictionary(state)
+    out += ["", f"**Dictionary:** {book['words']} words and {book['phrasals']} "
+                f"phrasal verbs learned, {book['learning']} in progress", ""]
+    for row in book["active"]:
+        out.append(f"- [ ] {row['text']} ({row['kind']})"
+                   + (f" \u2014 used {row['uses']}/{book['needed']}"
+                      if row["uses"] else ""))
+    for row in book["recent"]:
+        out.append(f"- [x] {row['text']} ({row['kind']})")
     if unit:
-        lexis = lexis_checklist(state, unit)
-        out += ["", f"**Words used {lexis['words_done']}/{lexis['words_needed']}, "
-                    f"phrasal verbs {lexis['phrasals_done']}/"
-                    f"{lexis['phrasals_needed']}**", ""]
-        for row in lexis["words"] + lexis["phrasals"]:
-            mark = "x" if row["checked"] else " "
-            out.append(f"- [{mark}] {row['text']}"
-                       + (f" ({row['uses']}\u00d7)" if row["uses"] else ""))
         methods = cur.methods_of(unit)
         if methods:
             out += ["", "**Practised with:** "

@@ -1,5 +1,5 @@
 """
-tutor/curriculum.py — what is taught, in which order.
+tutor/curriculum.py - what is taught, in which order.
 
 THE SHAPE OF THE COURSE
     Six stages take a learner from A2 to B2. Each stage has four units, and
@@ -9,27 +9,30 @@ THE SHAPE OF THE COURSE
         A2.1 → A2.2 → B1.1 → B1.2 → B2.1 → B2.2 → (course done, B2)
 
     Units are layered: a later unit assumes the skills of every earlier one, so
-    a mistake on an old skill is never "out of scope" — it goes back on the
+    a mistake on an old skill is never "out of scope" - it goes back on the
     focus list and is reviewed until it is strong again.
 
 HOW A UNIT IS PASSED
-    Not by time. A unit is done when the learner has spoken enough in it
-    (UNIT_MIN_PRACTICE substantial sentences) AND every target skill has been
-    used correctly at least SKILL_MIN_CORRECT times with mastery at or above
-    SKILL_PASS. A stage is done when all its units are done AND the measured
+    Not by time, and not by vocabulary: a unit is a grammar unit. It is done
+    when the learner has spoken enough in it (UNIT_MIN_PRACTICE substantial
+    sentences) AND every target skill has been used correctly at least
+    SKILL_MIN_CORRECT times with mastery at or above SKILL_PASS. A stage is done when all its units are done AND the measured
     level has reached the stage's exit score. Until then the stage stays open
     in a "consolidation" layer: free conversation at that level, aimed at the
     weakest skills.
 
-WHAT GOES INTO THE MOUTH
-    Grammar alone produces a learner who is correct and silent. Every unit also
-    carries the WORDS and the PHRASAL VERBS it should install (UNIT_WORDS /
-    UNIT_PHRASALS), pitched at its level, and a unit is not finished until the
-    learner has used enough of them in sentences of their own.
+GRAMMAR HERE, VOCABULARY ELSEWHERE
+    This file is the grammar base and nothing else: the ladder of forms, each
+    unit's model sentences, the rule behind every skill (SKILL_TIPS) and the
+    techniques it is drilled with. A fixed word list per unit would fight the
+    learner - they talk about their own day, their own work - so vocabulary is
+    not in the course at all. It is a live dictionary, grown from whatever they
+    are actually talking about, suggested per sentence by the analyser and
+    tracked in tutor/progress.py.
 
 HOW IT IS TAUGHT
     A unit is not just its grammar and its sentences: it also names the
-    techniques it is practised with (METHODS below) — substitution drills,
+    techniques it is practised with (METHODS below) - substitution drills,
     dictogloss, 4/3/2 fluency, information gaps, role play, pushed output,
     spaced review. The tutor is handed those instructions with the unit, so
     the lesson has a method and not only a topic.
@@ -64,7 +67,7 @@ ENGLISH_SKILLS: dict[str, tuple[str, str, str]] = {
                                "do/does/did + subject + verb: Where do you live?"),
     "word_order":             ("word order", "A2",
                                "subject + verb + object + place + time"),
-    "subject_verb_agreement": ("subject–verb agreement", "A2",
+    "subject_verb_agreement": ("subject-verb agreement", "A2",
                                "he/she/it + -s; people are, a person is"),
     "articles":               ("articles (a / an / the)", "A2",
                                "a = one of many, the = the one we know"),
@@ -77,7 +80,7 @@ ENGLISH_SKILLS: dict[str, tuple[str, str, str]] = {
     "comparatives":           ("comparatives and superlatives", "A2",
                                "bigger than, more expensive, the best"),
     "modals_basic":           ("can / must / should", "A2",
-                               "can + verb, should + verb — no 'to'"),
+                               "can + verb, should + verb - no 'to'"),
     "linking_words":          ("linking words", "A2",
                                "and, but, because, so, then, although"),
     "word_choice":            ("word choice", "A2",
@@ -106,7 +109,7 @@ ENGLISH_SKILLS: dict[str, tuple[str, str, str]] = {
     "passive_simple":         ("passive (simple)", "B1",
                                "It is made in… / It was built in…"),
     "word_forms":             ("word forms", "B1",
-                               "happy/happiness/happily — noun, adjective, adverb"),
+                               "happy/happiness/happily - noun, adjective, adverb"),
     # B2
     "past_perfect":           ("past perfect", "B2",
                                "the earlier past: When I arrived, he had left"),
@@ -133,321 +136,180 @@ ENGLISH_SKILLS: dict[str, tuple[str, str, str]] = {
 
 ENGLISH_STAGES: list[dict] = [
     {
-        "id": "A2.1", "band": "A2", "title": "Everyday me", "exit_score": 26,
+        "id": "A2.1", "band": "A2", "title": "Everyday forms", "exit_score": 26,
         "units": [
-            {"id": "en-01", "title": "Me and my day",
+            {"id": "en-01", "title": "Present simple & questions",
              "skills": ["present_simple", "questions"],
-             "theme": "daily routine, work, family, free time",
-             "task": "Describe a normal day from morning to night, then ask the tutor three questions about their day.",
              "can_do": "talk about habits and ask simple questions",
              "examples": ["I get up at seven every day.",
                           "She works in a hospital.",
                           "What time do you start work?"]},
-            {"id": "en-02", "title": "Right now",
+            {"id": "en-02", "title": "Present continuous",
              "skills": ["present_continuous", "subject_verb_agreement"],
-             "theme": "home, what people are doing, this week",
-             "task": "Say what you and your family are doing right now and this week.",
-             "can_do": "tell the difference between 'I work' and 'I am working'",
+             "can_do": "tell 'I work' from 'I am working'",
              "examples": ["I am cooking dinner now.",
                           "They are waiting outside.",
                           "What are you doing this week?"]},
-            {"id": "en-03", "title": "Last weekend",
+            {"id": "en-03", "title": "Past simple",
              "skills": ["past_simple"],
-             "theme": "weekend, trips, food, meeting friends",
-             "task": "Tell the story of last weekend with at least five past verbs.",
              "can_do": "talk about finished past events",
-             "examples": ["I went to my friend's house on Saturday.",
+             "examples": ["I went there on Saturday.",
                           "We ate fish and drank tea.",
                           "I didn't work last weekend."]},
-            {"id": "en-04", "title": "People and places",
+            {"id": "en-04", "title": "Articles, prepositions & word order",
              "skills": ["articles", "prepositions", "word_order"],
-             "theme": "your city, your home, directions",
-             "task": "Describe your city or your street: what is there and where it is.",
-             "can_do": "describe places correctly with a/the and in/on/at",
+             "can_do": "put a/the and in/on/at in the right places",
              "examples": ["There is a park near my house.",
                           "I live in a flat on the third floor.",
-                          "The shop is next to the bank."]},
+                          "I read a book at home every evening."]},
         ],
     },
     {
-        "id": "A2.2", "band": "A2", "title": "Plans and choices", "exit_score": 38,
+        "id": "A2.2", "band": "A2", "title": "Talking beyond now", "exit_score": 38,
         "units": [
-            {"id": "en-05", "title": "Plans",
+            {"id": "en-05", "title": "Future: going to & will",
              "skills": ["future_forms"],
-             "theme": "holidays, next week, goals",
-             "task": "Talk about your plans for next week and next year.",
              "can_do": "talk about plans and decisions",
              "examples": ["I am going to visit my family next month.",
                           "I think it will rain tomorrow.",
-                          "We are going to buy a car in summer."]},
-            {"id": "en-06", "title": "Better or worse",
+                          "I'll call you later."]},
+            {"id": "en-06", "title": "Comparatives & quantity",
              "skills": ["comparatives", "plurals_quantity"],
-             "theme": "shopping, prices, choosing things",
-             "task": "Compare two phones, two cities or two jobs and choose the best one.",
-             "can_do": "compare things and talk about quantity",
-             "examples": ["This phone is cheaper than that one.",
-                          "It is the best restaurant in the city.",
+             "can_do": "compare things and talk about how much there is",
+             "examples": ["This one is cheaper than that one.",
+                          "It is the best in the city.",
                           "I don't have much time today."]},
-            {"id": "en-07", "title": "Rules and advice",
+            {"id": "en-07", "title": "Modals: can, must, should",
              "skills": ["modals_basic", "pronouns_possessives"],
-             "theme": "health, work rules, advice for a friend",
-             "task": "Give advice to a friend who wants to learn English or get healthy.",
              "can_do": "give advice and talk about rules and ability",
              "examples": ["You should sleep more.",
                           "I can speak a little English.",
                           "You must not park here."]},
-            {"id": "en-08", "title": "A short story",
+            {"id": "en-08", "title": "Linking a story together",
              "skills": ["linking_words", "past_simple"],
-             "theme": "a funny or bad day, an experience",
-             "task": "Tell a short story with 'first, then, because, so, but'.",
-             "can_do": "connect sentences into a story",
+             "can_do": "join sentences into a story",
              "examples": ["First I called him, then I went home.",
                           "I was tired, so I slept early.",
                           "I wanted to go out, but it was raining."]},
         ],
     },
     {
-        "id": "B1.1", "band": "B1", "title": "Experiences", "exit_score": 46,
+        "id": "B1.1", "band": "B1", "title": "Perfect and past", "exit_score": 46,
         "units": [
-            {"id": "en-09", "title": "Have you ever…?",
+            {"id": "en-09", "title": "Present perfect",
              "skills": ["present_perfect"],
-             "theme": "travel, experiences, things you have never done",
-             "task": "Ask and answer 'Have you ever…?' questions and give details.",
-             "can_do": "talk about life experience",
+             "can_do": "talk about experience without saying when",
              "examples": ["I have never been to Italy.",
                           "Have you ever eaten sushi?",
-                          "I have already finished my work."]},
-            {"id": "en-10", "title": "When I was a child",
+                          "I have already finished."]},
+            {"id": "en-10", "title": "Past continuous & used to",
              "skills": ["past_continuous", "used_to"],
-             "theme": "childhood, past habits, a memory",
-             "task": "Describe your childhood and a moment when something unexpected happened.",
-             "can_do": "describe the background of a story and past habits",
-             "examples": ["When I was a child, I used to play football every day.",
-                          "I was walking home when it started to rain.",
+             "can_do": "set the background of a story and describe old habits",
+             "examples": ["I was walking home when it started to rain.",
+                          "I used to play football every day.",
                           "We used to live in a small village."]},
-            {"id": "en-11", "title": "Already or yesterday?",
+            {"id": "en-11", "title": "Perfect vs past simple",
              "skills": ["perfect_vs_past"],
-             "theme": "news, changes in your life, this year",
-             "task": "Talk about what has changed in your life and when it happened.",
-             "can_do": "choose between present perfect and past simple",
+             "can_do": "choose between 'I did' and 'I have done'",
              "examples": ["I have lived here for three years.",
                           "I moved here in 2021.",
                           "I haven't seen him since Monday."]},
-            {"id": "en-12", "title": "What if…?",
+            {"id": "en-12", "title": "First conditional & possibility",
              "skills": ["first_conditional", "modals_possibility"],
-             "theme": "decisions, weather, future possibilities",
-             "task": "Discuss a real decision you have to make and what might happen.",
-             "can_do": "talk about real possibilities and consequences",
+             "can_do": "talk about real possibilities and what follows from them",
              "examples": ["If I have time tomorrow, I will call you.",
                           "It might rain later.",
                           "I have to finish this today."]},
         ],
     },
     {
-        "id": "B1.2", "band": "B1", "title": "Ideas and descriptions", "exit_score": 56,
+        "id": "B1.2", "band": "B1", "title": "Longer sentences", "exit_score": 56,
         "units": [
-            {"id": "en-13", "title": "Imagine",
+            {"id": "en-13", "title": "Second conditional",
              "skills": ["second_conditional"],
-             "theme": "dreams, lottery, living in another country",
-             "task": "Answer 'What would you do if…?' questions and explain why.",
              "can_do": "talk about imaginary situations",
-             "examples": ["If I had more money, I would travel a lot.",
-                          "If I were you, I would take the job.",
-                          "What would you do if you lost your phone?"]},
-            {"id": "en-14", "title": "Goals and hobbies",
+             "examples": ["If I had more money, I would travel.",
+                          "If I were you, I would take it.",
+                          "What would you do if you lost it?"]},
+            {"id": "en-14", "title": "Verb patterns: -ing or to",
              "skills": ["gerund_infinitive", "phrasal_verbs"],
-             "theme": "hobbies, goals, habits you want to give up",
-             "task": "Talk about what you enjoy doing, what you want to do and what you gave up.",
-             "can_do": "use verb patterns and common phrasal verbs",
+             "can_do": "say what you enjoy doing and what you want to do",
              "examples": ["I enjoy learning languages.",
                           "I want to improve my speaking.",
                           "I gave up drinking coffee."]},
-            {"id": "en-15", "title": "The person who…",
+            {"id": "en-15", "title": "Relative clauses & word forms",
              "skills": ["relative_clauses", "word_forms"],
-             "theme": "describing people, objects, jobs",
-             "task": "Describe three people or things without saying their name — the tutor guesses.",
-             "can_do": "add detail with who/which/that/where",
+             "can_do": "add detail with who, which, that and where",
              "examples": ["The man who lives next door is a doctor.",
                           "This is the book that I told you about.",
-                          "That is the café where we met."]},
-            {"id": "en-16", "title": "How it is made",
+                          "She speaks English fluently."]},
+            {"id": "en-16", "title": "Passive voice",
              "skills": ["passive_simple"],
-             "theme": "products, food, buildings, processes",
-             "task": "Explain how something is made or how a process works.",
-             "can_do": "describe processes with the passive",
-             "examples": ["Bread is made from flour and water.",
+             "can_do": "describe how something is done",
+             "examples": ["Bread is made from flour.",
                           "This house was built in 1980.",
                           "English is spoken all over the world."]},
         ],
     },
     {
-        "id": "B2.1", "band": "B2", "title": "Stories and opinions", "exit_score": 63,
+        "id": "B2.1", "band": "B2", "title": "Precision in the past", "exit_score": 63,
         "units": [
-            {"id": "en-17", "title": "Before that",
+            {"id": "en-17", "title": "Past perfect",
              "skills": ["past_perfect"],
-             "theme": "detailed stories, misunderstandings",
-             "task": "Tell a story where the order of events matters.",
-             "can_do": "tell complex stories in the right time order",
+             "can_do": "put two past events in the right order",
              "examples": ["When I arrived, the film had already started.",
-                          "She had never seen snow before that winter.",
-                          "They had finished dinner by the time I got home."]},
-            {"id": "en-18", "title": "Regrets",
+                          "She had never seen snow before.",
+                          "They had finished before I got there."]},
+            {"id": "en-18", "title": "Third conditional & wishes",
              "skills": ["third_conditional", "wish_regret"],
-             "theme": "mistakes, lessons, different choices",
-             "task": "Talk about a decision you would change and what would have happened.",
              "can_do": "talk about the past that did not happen",
-             "examples": ["If I had studied harder, I would have passed.",
-                          "I wish I had more free time.",
+             "examples": ["If I had studied, I would have passed.",
+                          "I wish I had more time.",
                           "I wish I hadn't said that."]},
-            {"id": "en-19", "title": "He said that…",
+            {"id": "en-19", "title": "Reported speech",
              "skills": ["reported_speech"],
-             "theme": "conversations, news, messages",
-             "task": "Report a conversation or a piece of news you heard recently.",
              "can_do": "report what other people said",
-             "examples": ["He said that he was busy that day.",
+             "examples": ["He said he was busy that day.",
                           "She told me she would call later.",
                           "They asked where I lived."]},
-            {"id": "en-20", "title": "It must have been…",
+            {"id": "en-20", "title": "Modals of deduction",
              "skills": ["modals_deduction"],
-             "theme": "mysteries, pictures, explaining what happened",
-             "task": "Guess what happened in a strange situation the tutor describes.",
-             "can_do": "speculate about the past",
-             "examples": ["He must have forgotten our meeting.",
+             "can_do": "speculate about what happened",
+             "examples": ["He must have forgotten.",
                           "She might have missed the bus.",
-                          "It can't have been easy for them."]},
+                          "It can't have been easy."]},
         ],
     },
     {
-        "id": "B2.2", "band": "B2", "title": "Natural and precise", "exit_score": 70,
+        "id": "B2.2", "band": "B2", "title": "Range and control", "exit_score": 70,
         "units": [
-            {"id": "en-21", "title": "Formal English",
+            {"id": "en-21", "title": "Advanced passive",
              "skills": ["passive_advanced"],
-             "theme": "work, society, technology",
-             "task": "Explain a problem in society or at work in a neutral, formal way.",
              "can_do": "speak impersonally and formally",
              "examples": ["It is said that prices will rise.",
                           "The decision has already been made.",
                           "The report will be published next week."]},
-            {"id": "en-22", "title": "In ten years",
+            {"id": "en-22", "title": "Future continuous & perfect",
              "skills": ["future_advanced"],
-             "theme": "career, technology, predictions",
-             "task": "Describe where you will be and what you will have done in ten years.",
-             "can_do": "make detailed predictions",
-             "examples": ["This time next year I will be working abroad.",
-                          "By June I will have finished the course.",
+             "can_do": "say what will be happening and what will be finished",
+             "examples": ["This time next year I'll be working abroad.",
+                          "By June I'll have finished the course.",
                           "They will have moved by then."]},
-            {"id": "en-23", "title": "Arguing a point",
+            {"id": "en-23", "title": "Discourse markers",
              "skills": ["discourse_markers", "linking_words"],
-             "theme": "opinions, debates, pros and cons",
-             "task": "Give your opinion on a debate topic with reasons and a counter-argument.",
-             "can_do": "build and defend an argument",
-             "examples": ["On the one hand it is cheaper; on the other hand it is slower.",
-                          "However, there is one problem.",
+             "can_do": "build an argument the listener can follow",
+             "examples": ["However, there is one problem.",
+                          "On the one hand it is cheaper; on the other it is slower.",
                           "As a result, many people left."]},
-            {"id": "en-24", "title": "Sounding natural",
+            {"id": "en-24", "title": "Collocation & natural choice",
              "skills": ["collocations", "phrasal_verbs", "word_choice"],
-             "theme": "everyday natural speech, work talk",
-             "task": "Have a long natural conversation using the collocations you learned.",
-             "can_do": "speak naturally and precisely",
+             "can_do": "pick the word a speaker would actually use",
              "examples": ["I need to make a decision this week.",
-                          "Let's keep in touch.",
-                          "I am looking forward to seeing you."]},
+                          "We had heavy rain all night.",
+                          "Let's keep in touch."]},
         ],
     },
 ]
-
-
-# ── The words and the phrasal verbs ──────────────────────────────────────────
-# A course that only lists grammar teaches a learner to be correct and silent.
-# Each unit therefore also carries the words and the phrasal verbs it is meant
-# to put into the learner's mouth, pitched at the stage's level, and the tutor
-# is told to feed them into whatever the learner actually wants to talk about.
-#
-# They are TARGETS, not a test: the checklist ticks an item off when the learner
-# uses it themselves (see tutor/progress.py), not when they hear it.
-
-UNIT_WORDS = {
-    "en-01": ["routine", "usually", "breakfast", "shift", "commute", "tidy",
-              "spare time", "busy"],
-    "en-02": ["cook", "laundry", "currently", "noisy", "upstairs", "prepare",
-              "at the moment", "neighbour"],
-    "en-03": ["trip", "delicious", "invite", "market", "sunny", "afterwards",
-              "crowded", "relax"],
-    "en-04": ["neighbourhood", "opposite", "corner", "building", "bridge",
-              "pavement", "quiet", "nearby"],
-    "en-05": ["holiday", "book a ticket", "save money", "abroad", "probably",
-              "plan", "pack", "arrange"],
-    "en-06": ["cheap", "expensive", "discount", "quality", "brand", "worth",
-              "choose", "afford"],
-    "en-07": ["healthy", "advice", "allowed", "dangerous", "careful", "habit",
-              "rule", "harmful"],
-    "en-08": ["suddenly", "luckily", "angry", "notice", "mistake", "finally",
-              "embarrassed", "on my way"],
-    "en-09": ["experience", "adventure", "delayed", "passport", "journey",
-              "souvenir", "local", "so far"],
-    "en-10": ["childhood", "memory", "playground", "strict", "afraid",
-              "village", "imagine", "back then"],
-    "en-11": ["recently", "already", "lately", "promotion", "improve",
-              "progress", "since then", "change"],
-    "en-12": ["decision", "opportunity", "risk", "depend on", "apply",
-              "salary", "deadline", "in that case"],
-    "en-13": ["imagine", "wealthy", "quit", "freedom", "ideal", "afford",
-              "priority", "if I were you"],
-    "en-14": ["hobby", "motivation", "practice", "skill", "patience",
-              "progress", "worth it", "step by step"],
-    "en-15": ["colleague", "reliable", "generous", "device", "purpose",
-              "describe", "useful", "in charge of"],
-    "en-16": ["produce", "factory", "material", "process", "machine",
-              "deliver", "packaging", "step"],
-    "en-17": ["realise", "previously", "misunderstand", "explain", "confused",
-              "eventually", "by the time", "meanwhile"],
-    "en-18": ["regret", "warn", "avoid", "lesson", "blame", "chance",
-              "otherwise", "in hindsight"],
-    "en-19": ["mention", "admit", "deny", "announce", "insist",
-              "according to", "rumour", "apparently"],
-    "en-20": ["obvious", "likely", "evidence", "suspect", "guess",
-              "apparently", "strange", "no wonder"],
-    "en-21": ["policy", "issue", "require", "ensure", "statement",
-              "authority", "submit", "regulation"],
-    "en-22": ["career", "achieve", "retire", "expand", "invest", "trend",
-              "by then", "in the long run"],
-    "en-23": ["argue", "benefit", "drawback", "therefore", "whereas",
-              "convince", "on the whole", "to some extent"],
-    "en-24": ["actually", "basically", "honestly", "sort of", "anyway",
-              "fair enough", "no worries", "to be honest"],
-}
-
-UNIT_PHRASALS = {
-    "en-01": ["get up", "go out", "wake up"],
-    "en-02": ["look after", "tidy up", "hang out"],
-    "en-03": ["eat out", "set off", "stay in"],
-    "en-04": ["get to", "go past", "drop by"],
-    "en-05": ["look forward to", "sign up for", "put off"],
-    "en-06": ["try on", "pay for", "take back"],
-    "en-07": ["give up", "cut down on", "keep away from"],
-    "en-08": ["run into", "find out", "end up"],
-    "en-09": ["check in", "get away", "look around"],
-    "en-10": ["grow up", "look back", "bring up"],
-    "en-11": ["move in", "take on", "catch up"],
-    "en-12": ["think over", "go ahead", "back out"],
-    "en-13": ["carry on", "take up", "settle down"],
-    "en-14": ["keep on", "work on", "stick to"],
-    "en-15": ["stand out", "get along with", "rely on"],
-    "en-16": ["be made up of", "turn into", "carry out"],
-    "en-17": ["turn out", "work out", "point out"],
-    "en-18": ["look back on", "put up with", "make up for"],
-    "en-19": ["bring up", "pass on", "get across"],
-    "en-20": ["figure out", "come across", "rule out"],
-    "en-21": ["set out", "look into", "deal with"],
-    "en-22": ["take over", "move up", "come up with"],
-    "en-23": ["point out", "back up", "sum up"],
-    "en-24": ["keep in touch", "get round to", "catch on"],
-}
-
-# How many of each a unit needs before it is finished. Using a word once is
-# luck; using it twice in your own sentences is ownership.
-UNIT_WORDS_NEEDED    = 5
-UNIT_PHRASALS_NEEDED = 2
 
 
 # ── Grammar tips ─────────────────────────────────────────────────────────────
@@ -502,7 +364,7 @@ SKILL_TIPS: dict[str, tuple[str, list[str]]] = {
         ["This phone is cheaper than that one.",
          "It is the most expensive option."]),
     "modals_basic": (
-        "can / must / should + base verb — never with to.",
+        "can / must / should + base verb - never with to.",
         ["You should sleep more.", "I can speak a little English."]),
     "linking_words": (
         "because = reason, so = result, but = contrast, then = next.",
@@ -599,18 +461,10 @@ SKILL_TIPS: dict[str, tuple[str, list[str]]] = {
 
 
 def skill_tip(sid: str, skills: dict) -> dict:
-    """{title, rule, examples} for the tip card — empty title if unknown."""
+    """{title, rule, examples} for the tip card - empty title if unknown."""
     rule, examples = SKILL_TIPS.get(sid, ("", []))
     name = skills.get(sid, (sid,))[0] if skills else sid
     return {"id": sid, "title": name, "rule": rule, "examples": list(examples)}
-
-
-# Every unit carries its own words, phrasal verbs and techniques, so it is
-# self-describing wherever it travels — the prompt, the panel, the log.
-for _stage in ENGLISH_STAGES:
-    for _unit in _stage["units"]:
-        _unit["words"] = list(UNIT_WORDS.get(_unit["id"], ()))
-        _unit["phrasals"] = list(UNIT_PHRASALS.get(_unit["id"], ()))
 
 
 # ── How it is taught ─────────────────────────────────────────────────────────
@@ -632,7 +486,7 @@ METHODS: dict[str, dict] = {
         "name": "Substitution drill",
         "goal": "make the form automatic, so it needs no thinking",
         "how": ("Give one sentence, then change a single word each turn ('I went "
-                "to the shop' → park → school → work). Fast, 6–8 turns, no "
+                "to the shop' → park → school → work). Fast, 6-8 turns, no "
                 "grammar talk. Speed matters more than variety."),
     },
     "transformation": {
@@ -657,7 +511,7 @@ METHODS: dict[str, dict] = {
     },
     "elicit_self_repair": {
         "name": "Clarification request",
-        "goal": "notice your own mistakes — the strongest kind of correction",
+        "goal": "notice your own mistakes - the strongest kind of correction",
         "how": ("Instead of correcting, repeat their words back with a "
                 "questioning tone, or ask 'again?'. Give them ONE chance to "
                 "repair it themselves; correct only if they cannot."),
@@ -699,7 +553,7 @@ METHODS: dict[str, dict] = {
     },
     "shadowing": {
         "name": "Shadowing",
-        "goal": "rhythm, stress and linking — sounding like a speaker",
+        "goal": "rhythm, stress and linking - sounding like a speaker",
         "how": ("Say a sentence at natural speed. The learner repeats it copying "
                 "your rhythm, not just the words. Five short sentences, twice "
                 "each."),
@@ -707,7 +561,7 @@ METHODS: dict[str, dict] = {
     "personalise": {
         "name": "Personalisation",
         "goal": "language about your own life is the language you remember",
-        "how": ("Rebuild every example with their real details — their job, "
+        "how": ("Rebuild every example with their real details - their job, "
                 "their city, their family, what they did yesterday. Never drill "
                 "a sentence about a stranger."),
     },
@@ -743,7 +597,7 @@ METHODS: dict[str, dict] = {
         "name": "Spaced review",
         "goal": "you forget on a curve; reviewing on the same curve beats it",
         "how": ("Open every lesson with three quick prompts on skills that are "
-                "due for review — not on what was taught last, on what is about "
+                "due for review - not on what was taught last, on what is about "
                 "to be forgotten."),
     },
     "self_assess": {
@@ -762,12 +616,12 @@ STANDING_METHODS = ("spaced_review", "recast_repeat", "personalise", "self_asses
 # precision: pushing for natural speed before the basic forms exist only
 # produces confident mistakes.
 STAGE_EMPHASIS = {
-    "A2.1": "accuracy — the basic forms, said correctly and slowly",
-    "A2.2": "accuracy and range — more to say, still simple",
-    "B1.1": "fluency — keep talking, longer turns, fewer pauses",
-    "B1.2": "complexity — two-clause sentences, opinions with reasons",
-    "B2.1": "precision — the right tense and the right word",
-    "B2.2": "naturalness — chunks, rhythm, argument",
+    "A2.1": "accuracy - the basic forms, said correctly and slowly",
+    "A2.2": "accuracy and range - more to say, still simple",
+    "B1.1": "fluency - keep talking, longer turns, fewer pauses",
+    "B1.2": "complexity - two-clause sentences, opinions with reasons",
+    "B2.1": "precision - the right tense and the right word",
+    "B2.2": "naturalness - chunks, rhythm, argument",
 }
 
 # Which techniques each unit is practised with.
@@ -908,7 +762,7 @@ def band_index(band: str) -> int:
 
 
 def skills_up_to(lang: dict, stage_index: int) -> list[str]:
-    """Skills taught in every unit up to and including this stage — the ones a
+    """Skills taught in every unit up to and including this stage - the ones a
     learner here is expected to get right, and so the ones worth focusing on."""
     seen: list[str] = []
     for si, stage in enumerate(lang["stages"]):

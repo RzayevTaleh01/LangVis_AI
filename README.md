@@ -1,5 +1,7 @@
 # LangVis — a speaking language course
 
+**Author:** Taleh Rzayev
+
 LangVis is a voice-first language tutor for the desktop. You talk, it teaches:
 it listens to every sentence you say, measures it, corrects it, remembers what
 you get wrong, and runs a real course that carries you from **A2 to B2**.
@@ -7,7 +9,8 @@ you get wrong, and runs a real course that carries you from **A2 to B2**.
 It is not a chatbot and not an assistant — it does not open apps, control your
 computer or search the web. It has one job: making you speak better.
 
-- **Course:** 6 stages × 4 units = **24 units**, A2.1 → B2.2, all visible on screen
+- **Course:** the **grammar ladder** — 6 stages × 4 units = 24 units, A2.1 → B2.2
+- **Vocabulary:** a **live dictionary** grown from what you actually talk about
 - **Languages:** **English** (active) · **Slovak** (in the select, course not written yet)
 - **Voice:** real-time two-way audio through Google's Gemini Live API
 - **Level:** measured from your own speech, never guessed
@@ -35,19 +38,28 @@ computer or search the web. It has one job: making you speak better.
 └─────────────────────────────────────────────────────────────────────────┘
 ```
 
-- **Syllabus (left):** every stage and all 24 units in order — finished ones
-  ticked, the current one marked. Click any unit for its grammar, its words and
-  phrasal verbs, its model sentences, its methods and the speaking task.
+- **Syllabus (left):** the grammar base — every stage and all 24 units in
+  order, finished ones ticked, the current one marked. Click any unit for its
+  forms, the **rule** behind each one with examples, its model sentences and
+  the techniques it is drilled with. No vocabulary lists: grammar here,
+  words in the dictionary.
 - **The coaching (centre)** is the biggest thing on screen, because it is the
-  lesson: your sentence with the wrong parts in **red**, the **corrected**
+  lesson. Your sentence appears **as you speak it** — greyed, before any
+  analysis — and is then replaced in place by the marked-up version: the wrong
+  parts in **red**, the **corrected**
   version with the repairs in green and the reason beside them, the **tip** —
   the rule behind that mistake with two examples — and **say it better**: the
   same meaning one level up, using a word the unit is installing.
-- **Words to use:** the unit's vocabulary and phrasal verbs, ticked off when
-  *you* use them twice in your own sentences (hearing them does not count).
-- **The voice mark:** a drawn speech bubble with a microphone and sound waves
-  that open out with your voice — green while it listens, terracotta while the
-  tutor speaks, slashed when the mic is off.
+- **Your dictionary (right):** there is no fixed word list. For every sentence
+  you say, the analyser proposes words and phrasal verbs **from your own
+  topic**, one step above your level; they wait there until you use them, and
+  tick off after two uses of your own (hearing them never counts).
+- **The tutor's face:** a drawn character, all paths and no image. Its mouth
+  opens with the **real audio level**, so what moves is the tutor's actual
+  voice; its eyes are wide while it listens to you, narrowed while it explains,
+  looking away while it thinks and closed while it sleeps; the rim carries the
+  state colour — green listening, terracotta speaking, mustard thinking, rose
+  when the microphone is off.
 - **Transcript (right):** closed by default. Open it from the header when you
   want to read back what was said.
 
@@ -115,8 +127,8 @@ small, cheap model per sentence — the live conversation is never blocked):
 | **Level** | a rolling CEFR score over your last sentences, weighted against the level you stated until enough is measured |
 | **Skills** | ~40 curriculum skills (past simple, articles, prepositions, conditionals…), each with mastery, your real mistakes and a review date |
 | **Focus** | the three weakest skills at or below your stage — what the tutor attacks next |
-| **Course** | a unit passes when you have spoken enough in it, its target skills are strong *and* you have used five of its words and two of its phrasal verbs; a stage passes when your level reaches the stage goal |
-| **Words and phrasal verbs** | 192 words and 72 phrasal verbs across the course, 8 + 3 per unit; each ticks off after two uses of your own |
+| **Course** | a unit is a grammar unit: it passes when you have spoken enough in it and its target forms are strong; a stage passes when your level reaches the stage goal |
+| **Dictionary** | every word and phrasal verb the tutor has offered you, with how often you have used it; learned at two uses of your own |
 | **Words you were missing** | anything you had to say in your own language, kept until you use the target-language word yourself |
 | **Fallbacks** | how often you switched to your own language — the honest fluency number |
 
@@ -154,7 +166,7 @@ core/prompt.txt            the tutor's core protocol (identity, how to correct)
 core/plugin_loader.py      plugin discovery: tools, observers, prompt blocks
 core/wake_word.py          optional offline wake-word detection
 core/audio_devices.py      microphone / speaker selection
-tutor/curriculum.py        skills, stages, units, model sentences — what is taught
+tutor/curriculum.py        the grammar base: skills, rules, stages, units, methods
 tutor/progress.py          the learner's state: level, skills, course, vocabulary
 tutor/analysis.py          per-sentence analysis and drill generation
 plugins/language_tutor.py  the tutor itself: observe → measure → teach
@@ -174,3 +186,14 @@ Adding **Slovak** means writing its skills, stages and model sentences in
 `tutor/curriculum.py`, a word-level detector for it in `tutor/analysis.py`, and
 flipping `LANGUAGES["slovak"]["enabled"]` to `True`. The select already lists
 it; nothing in the interface needs to change.
+
+## Icons and artwork
+
+Nothing in the interface is a shipped image. The tutor's face, every icon and
+every progress bar is a path drawn at runtime (`ui.py`), so the app carries no
+icon font, renders sharp at any DPI, and recolours itself with the theme.
+
+## Author
+
+**Taleh Rzayev** — design, code and curriculum.
+LangVis is built for one learner at a time, starting with its own author.

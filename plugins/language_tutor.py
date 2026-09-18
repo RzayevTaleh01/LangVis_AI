@@ -1,24 +1,28 @@
 """
-plugins/language_tutor.py — LangVis as a personal language tutor.
+plugins/language_tutor.py - LangVis as a personal language tutor.
 
 WHAT IT DOES
     LangVis is no longer a desktop assistant: it is a speaking teacher. This
     plugin is the teacher's brain, the live voice session is its mouth.
 
-    1. observe(text) — every sentence the learner speaks is analysed in the
+    1. observe(text) - every sentence the learner speaks is analysed in the
        background: scored on the CEFR scale, each mistake tied to a curriculum
        skill, each correct structure counted as evidence. Sentences said in the
-       learner's own language are counted too — the words they were missing
+       learner's own language are counted too - the words they were missing
        become vocabulary to recycle.
-    2. From that evidence the course moves: a unit passes when its skills are
-       strong and enough has been said, a stage passes when the level is there.
-    3. format_for_prompt() — every session starts from a LESSON PLAN: the
+    2. From that evidence the course moves: a unit passes when its grammar
+       skills are strong and enough has been said, a stage passes when the level
+       is there. The course itself is grammar only.
+    2b. Vocabulary is a live dictionary instead of a list: for every sentence
+       the analyser proposes words and phrasal verbs from the learner's own
+       topic, and each one ticks off after two uses of their own.
+    3. format_for_prompt() - every session starts from a LESSON PLAN: the
        current unit, the learner's weakest skills with their real mistakes,
        reviews that are due, words to reuse, and how simply to speak.
     4. Mid-lesson, the tutor is told when something changes: a unit finished,
        the same mistake made three times (→ short focused drill), a correction
        it may have missed.
-    5. run() — the learner can ask: my level, my plan, my weak points, check
+    5. run() - the learner can ask: my level, my plan, my weak points, check
        this sentence, give me a drill, next unit, pause corrections.
 
 MODES
@@ -42,7 +46,7 @@ from tutor import progress as pg
 PLUGIN = {
     "name": "language_tutor",
     "description": (
-        "The learner's language course. It measures every sentence by itself — "
+        "The learner's language course. It measures every sentence by itself - "
         "do NOT call it after every sentence. Call it when the learner ASKS: "
         "'what is my level', 'how am I doing' (action='report'); 'what are we "
         "learning', 'what is today's lesson', or after a [TUTOR_PROGRESS] note "
@@ -206,7 +210,7 @@ def _speech_level(state: dict, lang: dict) -> str:
     """How simply the tutor must speak: the LOWER of what has been measured and
     the band of the stage they are working through.
 
-    Measuring one sentence at a time flatters a learner — a good sentence scores
+    Measuring one sentence at a time flatters a learner - a good sentence scores
     B1 long before they can hold a B1 conversation. The course knows better: it
     is where their grammar has actually been proved. So the input stays at the
     stage's level and rises as the stage does, which is the point of a course
@@ -223,12 +227,12 @@ def _method_playbook(lang: dict, state: dict) -> str:
     """The techniques, spelled out as instructions.
 
     A model asked to "teach a lesson" improvises a quiz. Handed the actual
-    methods — a substitution drill, a dictogloss, 4/3/2, an information gap —
+    methods - a substitution drill, a dictogloss, 4/3/2, an information gap -
     with the steps of each, it runs a lesson instead. The unit names its own
     techniques (see tutor/curriculum.py); these are standing ones that belong
     in every lesson whatever the unit is.
     """
-    lines = ["HOW TO TEACH — the method, not just the topic:"]
+    lines = ["HOW TO TEACH - the method, not just the topic:"]
     for mid in cur.STANDING_METHODS:
         m = cur.method(mid)
         lines.append(f"- {m['name']} — {m['how']}")
@@ -284,37 +288,39 @@ def format_for_prompt() -> str:
                      "full stop. This never lapses, even in long answers.")
     lines += [
         "- Keep YOUR turns short: one to three sentences, then give the floor back "
-        "with a question. The learner must talk more than you — about 70% of the time.",
+        "with a question. The learner must talk more than you - about 70% of the time.",
         "- If they ask you to repeat, say the same thing again, slower and simpler.",
         "",
-        "TWO JOBS ON EVERY SENTENCE THEY SAY — in this order:",
+        "TWO JOBS ON EVERY SENTENCE THEY SAY - in this order:",
         "  1. IS IT RIGHT? If not, correct it (see below) before anything else.",
         "  2. HOW COULD IT BE BETTER? Even a correct sentence gets one upgrade: "
         "a stronger word, a natural phrasal verb, two clauses instead of one. "
         "Say the better version, have them say it, then carry on. Never let a "
-        "correct-but-flat sentence pass without the upgrade — that is how they "
+        "correct-but-flat sentence pass without the upgrade - that is how they "
         "climb from A2 to B2.",
         "The learner may talk about ANYTHING they like. You do not need to steer "
         "them onto the unit's theme: take whatever they bring and feed this "
         "unit's grammar, words and phrasal verbs into it.",
         "",
-        "WHAT YOU ARE INSTALLING (the LESSON PLAN lists this unit's set):",
-        "- Use each target word and phrasal verb yourself, in a sentence about "
-        "what they are talking about, then ask a question they cannot answer "
-        "without it. They own it after they have used it twice themselves.",
-        "- One or two new items per turn, never a vocabulary list read aloud.",
-        "- When they use one correctly, say so in three words ('good \u2014 "
-        "\"tidy up\"') and move on. Their screen ticks it off; you do not need "
-        "to keep score out loud.",
-        "- Never teach a word that is above the level in this plan, and never "
-        "explain a word in a long definition: give it inside a sentence.",
+        "THEIR DICTIONARY IS LIVE, NOT A LIST:",
+        "- Every sentence they say, the analyser proposes a word or a phrasal "
+        "verb from THEIR subject, one step above their level. The LESSON PLAN "
+        "shows what is waiting: use those items in your own turns, in real "
+        "sentences about what they are discussing, and then ask something they "
+        "cannot answer without them.",
+        "- Two uses of their own and the item is theirs; their screen ticks it "
+        "off, so never read the list aloud and never keep score out loud.",
+        "- One or two new items per turn. Give a word inside a sentence, never "
+        "as a definition, and never one that is two levels above them.",
+        "- When they use one correctly, three words of acknowledgement "
+        "(\"good \u2014 'run late'\") and carry on.",
         "",
         "WHAT IS ON THEIR SCREEN (do not read it out):",
         "- their sentence with the wrong parts in red, the corrected sentence "
         "under it, a better version, and the grammar rule behind the mistake "
         "with two examples;",
         "- the checklist of this unit's words and phrasal verbs.",
-        "So keep your spoken correction SHORT — the detail is already in front "
+        "So keep your spoken correction SHORT - the detail is already in front "
         "of them. Say the right sentence, have them repeat it, and move on; "
         "explain the rule aloud only if they ask or if the same mistake keeps "
         "coming back.",
@@ -328,25 +334,30 @@ def format_for_prompt() -> str:
             "  1. Their sentence has a mistake → FIRST the correction. Say the right "
             "version (\"You mean: I went there yesterday.\"), ask them to say it "
             "(\"Say it.\"), WAIT for their next turn, then one short word of approval "
-            "— and ONLY THEN answer what they actually said or asked, in that same "
+            "- and ONLY THEN answer what they actually said or asked, in that same "
             "turn. Do not answer the content before the correction is done.",
             "  2. Their sentence is CORRECT → answer straight away, immediately, with "
             "no comment at all. No \"that was correct\", no praise, no repeating their "
             "sentence back. Silence about the grammar IS the reward.",
+            "  2b. While the correction is owed, their question waits. Do not "
+            "answer the content of a sentence that has a mistake in it - ask for "
+            "the corrected version and wait for it. If they reply with something "
+            "else, ask once more (\"Say it first: …\"); after that second attempt, "
+            "accept it and answer them.",
             "  3. Never answer first and correct afterwards. Never lose the question "
             "either: hold on to what they asked while you correct, and they must never "
             "have to say it twice.",
-            "  4. ONE mistake per turn — the most important one, and the FOCUS list or "
+            "  4. ONE mistake per turn - the most important one, and the FOCUS list or "
             "the current unit comes first. If their second attempt is still wrong, say "
             "the right version once more, accept it, answer them, and move on. Never "
             "drill the same sentence a third time.",
-            "  5. EXCEPTION — answer first and correct after when they are upset or in "
+            "  5. EXCEPTION - answer first and correct after when they are upset or in "
             "a hurry, or when the sentence is urgent: stop, wait, repeat that, slower, "
             "I don't understand, help me.",
         ]
     else:
         lines += [
-            "- When they make a mistake, correct ONE thing per turn — the most "
+            "- When they make a mistake, correct ONE thing per turn - the most "
             "important one, and always one on the FOCUS list or the current unit.",
             "- Correct like a coach: say the right version, ask them to say it, then "
             "answer them. Never drill the same sentence a third time.",
@@ -361,18 +372,18 @@ def format_for_prompt() -> str:
         "",
         "HOW A LESSON RUNS (follow the LESSON PLAN below; move through the layers "
         "naturally, do not announce them):",
-        "  1. Warm-up — greet by name, one or two easy personal questions.",
-        "  2. Review — make them use the FOCUS skills: short prompts built from their "
+        "  1. Warm-up - greet by name, one or two easy personal questions.",
+        "  2. Review - make them use the FOCUS skills: short prompts built from their "
         "real mistakes (e.g. \"Tell me three things you did yesterday\").",
-        "  3. Current unit — explain the target in one or two simple sentences "
+        "  3. Current unit - explain the target in one or two simple sentences "
         "with an example, then run the unit's own techniques in the order the "
         "LESSON PLAN lists them under HOW TO PRACTISE IT, then the speaking task.",
-        "  4. Conversation — talk about the unit theme; keep pulling the target "
+        "  4. Conversation - talk about the unit theme; keep pulling the target "
         "grammar and the words to recycle into their answers.",
-        "  5. Wrap-up — only when they want to stop: one thing they did well, one to "
+        "  5. Wrap-up - only when they want to stop: one thing they did well, one to "
         "practise, and the new words.",
-        "If they want to talk about something else, follow them — any topic is "
-        "practice — but keep correcting and keep steering the grammar.",
+        "If they want to talk about something else, follow them - any topic is "
+        "practice - but keep correcting and keep steering the grammar.",
         "",
         _method_playbook(lang, state),
         "NOTES FROM THE ANALYSER (these arrive as messages; never read the tag aloud):",
@@ -438,31 +449,36 @@ def _handle(text: str, player) -> None:
     is_target = an.looks_english(text) if _mode_key() == "english" else False
 
     if not paused and is_target and _min_words() <= n <= 120:
-        target_words = list(unit.get("words", []))
-        target_phrasals = list(unit.get("phrasals", []))
+        with _lock:
+            waiting = [i["text"] for i in pg.active_deck(_load(lang))]
         result = an.analyse(
             text, language_name=lang["name"], native_language=_native(), level=level,
             unit_title=unit.get("title", "stage review"),
             unit_skills=unit.get("skills", []), skills=lang["skills"],
             strictness=str(_setting("strictness", "normal")),
-            target_words=target_words, target_phrasals=target_phrasals)
+            live_dictionary=waiting)
         if result:
-            # Which targets they actually used is decided here, not by the
-            # model: local matching handles inflection and never hallucinates
-            # a word into the checklist.
-            used = an.used_items(text, target_words + target_phrasals)
-            kinds = {w: "word" for w in target_words}
-            kinds.update({p: "phrasal" for p in target_phrasals})
             with _lock:
                 state = _load(lang)
+                # The suggestions land first, so a word they used in this very
+                # sentence gets credit for it straight away.
+                pg.offer_lexis(state, result.get("suggest_words", []),
+                               result.get("suggest_phrasals", []),
+                               result.get("topic", ""))
+                # What they used is decided locally, never by the model:
+                # matching handles inflection and cannot invent a tick.
+                used = an.used_items(text, pg.known_items(state))
                 outcome = pg.record_target(state, lang, text, result, n,
-                                           used_lexis=used, lexis_kinds=kinds)
+                                           used_lexis=used)
                 _save(state, lang)
             _set_coaching(build_card(text, result, lang, level))
             _log(player, f"{lang['name']}: {band_label(result['score'])}, "
                          f"{len(result['corrections'])} fix(es), "
                          f"{len(result['correct_uses'])} correct use(s)"
                          + (f", used {', '.join(used)}" if used else ""))
+            if result.get("suggest_words") or result.get("suggest_phrasals"):
+                _log(player, "new for you: " + ", ".join(
+                    result.get("suggest_words", []) + result.get("suggest_phrasals", [])))
             for item in outcome.get("checked", []):
                 _log(player, f"learned: {item}")
             _react(player, lang, text, result, outcome)
@@ -496,7 +512,7 @@ def _react(player, lang: dict, text: str, result: dict, outcome: dict) -> None:
     skills = lang["skills"]
 
     not_the_learner = (
-        "This message is from the tutor system, NOT from the learner — they have "
+        "This message is from the tutor system, NOT from the learner - they have "
         "said nothing since your last turn. Never answer it as if they had "
         "spoken, never praise a sentence they did not say, never repeat a "
         "question you already asked, and never end the lesson because of it."
@@ -565,7 +581,7 @@ def _react(player, lang: dict, text: str, result: dict, outcome: dict) -> None:
         parts.append(f'Better version: "{result["improved"]}"')
     if outcome["band_moved"]:
         parts.append(f"Milestone: {outcome['band_moved']}")
-    parts.append("If you ALREADY corrected this, do not correct it again — continue the "
+    parts.append("If you ALREADY corrected this, do not correct it again - continue the "
                  "conversation exactly where it was, without repeating your last "
                  "question. If you did not, correct only the most important mistake "
                  "in one short turn (say it right, ask them to say it), then continue.")
@@ -625,7 +641,7 @@ def coaching_for_ui() -> dict:
         unit = pg.position(state, lang).get("unit") or {}
         with _coaching_lock:
             card = dict(_coaching)
-        card["checklist"] = pg.lexis_checklist(state, unit)
+        card["dictionary"] = pg.dictionary(state)
         card["unit_title"] = unit.get("title", "")
         return card
     except Exception as e:
@@ -781,7 +797,7 @@ def _weak_points() -> str:
         state = _load(lang)
     focus = pg.focus_skills(state, lang, limit=5)
     if not focus:
-        return "No repeated weak points yet — not enough has been measured."
+        return "No repeated weak points yet - not enough has been measured."
     lines = ["Weak points, worst first:"]
     for i, (sid, sk) in enumerate(focus, 1):
         name, _b, hint = lang["skills"][sid]
@@ -846,7 +862,7 @@ def _practice(topic: str, player=None) -> str:
                     hint=hint, mistakes=mistakes,
                     technique=f"{technique['name']}: {technique['how']}")
     if not text:
-        return "The drill came back empty — try again."
+        return "The drill came back empty - try again."
     try:
         if player and hasattr(player, "show_content"):
             player.show_content(f"Drill — {name}", text)
@@ -868,7 +884,7 @@ def _next_unit() -> str:
             return "The course is already complete."
         if pos.get("unit") is None:
             return ("All units of this stage are done. The stage passes when the level "
-                    "reaches the stage goal — keep talking; nothing to skip.")
+                    "reaches the stage goal - keep talking; nothing to skip.")
         events = pg.advance(state, lang, force=True)
         _save(state, lang)
         plan = pg.lesson_plan(state, lang, _native())
@@ -880,12 +896,22 @@ def _words() -> str:
     lang = _lang()
     with _lock:
         state = _load(lang)
-    vocab = pg.words_to_reuse(state, limit=12)
-    if not vocab:
-        return "No saved words yet."
-    return ("Words the learner needed and has not used yet: "
-            + ", ".join(f"{k} ({v.get('native', '')})" for k, v in vocab)
-            + ". Practise a few: ask questions that make them use the words.")
+    book = pg.dictionary(state)
+    missing = pg.words_to_reuse(state, limit=6)
+    lines = [f"Their dictionary: {book['words']} words and {book['phrasals']} "
+             f"phrasal verbs learned, {book['learning']} half-way."]
+    if book["active"]:
+        lines.append("Waiting to be used (from their own topics): "
+                     + ", ".join(f"{i['text']} ({i['kind']})" for i in book["active"]))
+    if book["recent"]:
+        lines.append("Recently learned: "
+                     + ", ".join(r["text"] for r in book["recent"]))
+    if missing:
+        lines.append("Words they needed in their own language: "
+                     + ", ".join(f"{k} ({v.get('native', '')})" for k, v in missing))
+    lines.append("Name two or three of the waiting ones and put them into a "
+                 "question they have to answer with them.")
+    return "\n".join(lines)
 
 
 def _set_paused(paused: bool) -> str:

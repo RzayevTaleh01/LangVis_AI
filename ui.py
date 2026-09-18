@@ -17,11 +17,11 @@ if platform.system() == "Windows":
 else:
     _WIN_HIDE: dict = {}
 
-from PyQt6.QtCore import QPointF, QRectF, Qt, QTimer, pyqtSignal
+from PyQt6.QtCore import QPointF, QRectF, QSize, Qt, QTimer, pyqtSignal
 from PyQt6.QtGui import (
-    QBrush, QColor, QConicalGradient, QFont, QKeySequence, QLinearGradient,
-    QFontMetrics, QPainter, QPainterPath, QPainterPathStroker, QPen,
-    QPixmap, QShortcut,
+    QBrush, QColor, QConicalGradient, QFont, QFontMetrics, QIcon, QKeySequence,
+    QLinearGradient, QPainter, QPainterPath, QPainterPathStroker, QPen, QPixmap,
+    QShortcut, QTransform,
 )
 from PyQt6.QtWidgets import (
     QApplication, QComboBox, QFrame, QGridLayout, QHBoxLayout, QLabel,
@@ -71,8 +71,8 @@ class C:
     A language course is read like a book, so the app is built on warm paper
     with dark ink; the brand colour is a deep forest green (the course, the
     learner's own sentences, everything on track) and the tutor's own voice is
-    terracotta. Meaning never rests on colour alone — every state is also a
-    word on screen — but the colours are consistent: green is the course,
+    terracotta. Meaning never rests on colour alone - every state is also a
+    word on screen - but the colours are consistent: green is the course,
     terracotta is the tutor talking, mustard is thinking, brick is a mistake.
 
     The keys listed in _HUE_LINKED are re-derived from the accent colour in the
@@ -220,7 +220,7 @@ DEFAULT_UI_COLOR = _PALETTE_DEFAULTS["PRI"].lower()
 def apply_ui_accent(accent_hex: str) -> bool:
     """
     Re-derives the whole teal-family palette from the chosen accent colour
-    (hue shift — brightness/saturation ratios are preserved, design stays intact).
+    (hue shift - brightness/saturation ratios are preserved, design stays intact).
     Painted elements (HUD, waveform, metrics) pick up the new colour on the next
     frame; stylesheet-based panels pick it up when they are rebuilt.
     """
@@ -264,8 +264,8 @@ def retheme_all_widgets(old: dict[str, str], new: dict[str, str]) -> None:
     """
     LIVE full theme change. Replaces the old palette colours with the new ones
     in EVERY widget's stylesheet across the app and repaints them. This way the
-    colour change applies INSTANTLY across the whole interface — panels, buttons,
-    borders included — not just the painted elements. No restart needed.
+    colour change applies INSTANTLY across the whole interface - panels, buttons,
+    borders included - not just the painted elements. No restart needed.
     """
     mapping = {old[k].lower(): new[k].lower()
                for k in old if old[k].lower() != new.get(k, old[k]).lower()}
@@ -293,24 +293,293 @@ def qcol(h: str, a: int = 255) -> QColor:
     c = QColor(h); c.setAlpha(a); return c
 
 
+# ── Icons ────────────────────────────────────────────────────────────────────
+# Drawn, not shipped. An icon font (Font Awesome, Segoe Fluent) means either a
+# binary in the repo or a glyph that silently turns into a box on a machine
+# that lacks it - and this app already draws its own face, so the same brush
+# does the icons. Every one is a path in a 24x24 box, stroked with round caps
+# at the colour the caller asks for, so they sit at any size and any DPI and
+# recolour with the theme.
+
+
+def _icon_path(name: str) -> tuple[QPainterPath, bool]:
+    """(path, filled) for one icon, drawn inside a 24x24 box."""
+    p = QPainterPath()
+    filled = False
+
+    if name == "gear":
+        p.addEllipse(QRectF(8.5, 8.5, 7, 7))
+        ring = QPainterPath()
+        ring.addEllipse(QRectF(4.5, 4.5, 15, 15))
+        inner = QPainterPath()
+        inner.addEllipse(QRectF(7.5, 7.5, 9, 9))
+        p = ring.subtracted(inner)
+        for i in range(8):
+            a = math.radians(i * 45)
+            tooth = QPainterPath()
+            tooth.addRoundedRect(QRectF(-1.6, -11.2, 3.2, 4.4), 1.2, 1.2)
+            m = QTransform().rotate(i * 45)
+            p = p.united(m.map(tooth).translated(12, 12))
+        filled = True
+
+    elif name == "chat":
+        p.addRoundedRect(QRectF(3, 4.5, 18, 13), 4, 4)
+        tail = QPainterPath()
+        tail.moveTo(8, 17)
+        tail.lineTo(8, 21.5)
+        tail.lineTo(13, 17)
+        tail.closeSubpath()
+        p = p.united(tail)
+        filled = True
+
+    elif name == "send":
+        p.moveTo(3, 12)
+        p.lineTo(21, 4)
+        p.lineTo(13.5, 21)
+        p.lineTo(11, 13.8)
+        p.closeSubpath()
+        filled = True
+
+    elif name == "mic":
+        p.addRoundedRect(QRectF(9.2, 2.5, 5.6, 10.5), 2.8, 2.8)
+        arc = QPainterPath()
+        arc.arcMoveTo(QRectF(5.5, 5.5, 13, 13), 200)
+        arc.arcTo(QRectF(5.5, 5.5, 13, 13), 200, 140)
+        p = p.united(_stroke(arc, 1.8))
+        stem = QPainterPath()
+        stem.moveTo(12, 17.5)
+        stem.lineTo(12, 20.5)
+        base = QPainterPath()
+        base.moveTo(8.5, 21)
+        base.lineTo(15.5, 21)
+        p = p.united(_stroke(stem, 1.8)).united(_stroke(base, 1.8))
+        filled = True
+
+    elif name == "mic-off":
+        p, filled = _icon_path("mic")
+        slash = QPainterPath()
+        slash.moveTo(4, 20.5)
+        slash.lineTo(20, 3.5)
+        p = p.united(_stroke(slash, 2.2))
+
+    elif name == "stop":
+        p.addRoundedRect(QRectF(5.5, 5.5, 13, 13), 3, 3)
+        filled = True
+
+    elif name == "check":
+        line = QPainterPath()
+        line.moveTo(4.5, 12.5)
+        line.lineTo(10, 18)
+        line.lineTo(19.5, 6.5)
+        p = _stroke(line, 2.4)
+        filled = True
+
+    elif name == "play":
+        p.moveTo(8, 5.5)
+        p.lineTo(18.5, 12)
+        p.lineTo(8, 18.5)
+        p.closeSubpath()
+        filled = True
+
+    elif name == "dot":
+        p.addEllipse(QRectF(9.5, 9.5, 5, 5))
+        filled = True
+
+    elif name == "close":
+        a = QPainterPath(); a.moveTo(6, 6); a.lineTo(18, 18)
+        b = QPainterPath(); b.moveTo(18, 6); b.lineTo(6, 18)
+        p = _stroke(a, 2.2).united(_stroke(b, 2.2))
+        filled = True
+
+    elif name == "book":
+        p.addRoundedRect(QRectF(3.5, 4, 17, 16), 2.5, 2.5)
+        spine = QPainterPath()
+        spine.moveTo(12, 4.8)
+        spine.lineTo(12, 19.2)
+        p = p.subtracted(_stroke(spine, 1.6))
+        filled = True
+
+    elif name == "bookmark":
+        p.moveTo(6, 3.5)
+        p.lineTo(18, 3.5)
+        p.lineTo(18, 21)
+        p.lineTo(12, 16.5)
+        p.lineTo(6, 21)
+        p.closeSubpath()
+        filled = True
+
+    elif name == "quote":
+        for dx in (0, 8.5):
+            mark = QPainterPath()
+            mark.addRoundedRect(QRectF(4.5 + dx, 5.5, 6, 6), 1.6, 1.6)
+            tail = QPainterPath()
+            tail.moveTo(5.5 + dx, 11.5)
+            tail.lineTo(10.5 + dx, 11.5)
+            tail.lineTo(6.5 + dx, 18)
+            tail.closeSubpath()
+            p = p.united(mark).united(tail)
+        filled = True
+
+    elif name == "bulb":
+        p.addEllipse(QRectF(6.5, 2.5, 11, 11))
+        neck = QPainterPath()
+        neck.addRoundedRect(QRectF(9.5, 12, 5, 4.5), 1.2, 1.2)
+        base = QPainterPath()
+        base.addRoundedRect(QRectF(9, 17, 6, 2.2), 1.1, 1.1)
+        foot = QPainterPath()
+        foot.addRoundedRect(QRectF(10, 19.8, 4, 1.8), 0.9, 0.9)
+        p = p.united(neck).united(base).united(foot)
+        filled = True
+
+    elif name == "arrow-up":
+        shaft = QPainterPath()
+        shaft.moveTo(12, 20)
+        shaft.lineTo(12, 6)
+        head = QPainterPath()
+        head.moveTo(5.5, 12)
+        head.lineTo(12, 4.5)
+        head.lineTo(18.5, 12)
+        p = _stroke(shaft, 2.2).united(_stroke(head, 2.2))
+        filled = True
+
+    elif name == "list":
+        for y in (6.5, 12, 17.5):
+            bullet = QPainterPath()
+            bullet.addEllipse(QRectF(4, y - 1.3, 2.6, 2.6))
+            line = QPainterPath()
+            line.moveTo(9.5, y)
+            line.lineTo(20, y)
+            p = p.united(bullet).united(_stroke(line, 1.8))
+        filled = True
+
+    elif name == "palette":
+        p.addEllipse(QRectF(3.5, 3.5, 17, 17))
+        hole = QPainterPath()
+        hole.addEllipse(QRectF(13, 12.5, 5, 5))
+        p = p.subtracted(hole)
+        filled = True
+
+    elif name == "headphones":
+        arc = QPainterPath()
+        arc.arcMoveTo(QRectF(4, 4, 16, 16), 20)
+        arc.arcTo(QRectF(4, 4, 16, 16), 20, 140)
+        p = _stroke(arc, 2.0)
+        for x in (4, 17.2):
+            cup = QPainterPath()
+            cup.addRoundedRect(QRectF(x - 0.2, 12, 3.2, 7), 1.6, 1.6)
+            p = p.united(cup)
+        filled = True
+
+    elif name == "brain":
+        p.addEllipse(QRectF(4, 5.5, 8.5, 9))
+        p = p.united(QPainterPath()) if False else p
+        right = QPainterPath()
+        right.addEllipse(QRectF(11.5, 5.5, 8.5, 9))
+        stem = QPainterPath()
+        stem.addRoundedRect(QRectF(10.6, 13, 2.8, 6), 1.4, 1.4)
+        p = p.united(right).united(stem)
+        filled = True
+
+    elif name == "expand":
+        for sx, sy in ((1, 1), (-1, 1), (1, -1), (-1, -1)):
+            corner = QPainterPath()
+            corner.moveTo(12 - sx * 8, 12 - sy * 4)
+            corner.lineTo(12 - sx * 8, 12 - sy * 8)
+            corner.lineTo(12 - sx * 4, 12 - sy * 8)
+            p = p.united(_stroke(corner, 2.0))
+        filled = True
+
+    elif name == "pin":
+        p.addEllipse(QRectF(7, 3.5, 10, 10))
+        stem = QPainterPath()
+        stem.moveTo(12, 13)
+        stem.lineTo(12, 21)
+        p = p.united(_stroke(stem, 2.0))
+        filled = True
+
+    else:
+        p.addEllipse(QRectF(9, 9, 6, 6))
+        filled = True
+
+    return p, filled
+
+
+def _stroke(path: QPainterPath, width: float) -> QPainterPath:
+    """Turn a line into a shape, so an icon is one fillable path."""
+    stroker = QPainterPathStroker()
+    stroker.setWidth(width)
+    stroker.setCapStyle(Qt.PenCapStyle.RoundCap)
+    stroker.setJoinStyle(Qt.PenJoinStyle.RoundJoin)
+    return stroker.createStroke(path)
+
+
+_icon_cache: dict = {}
+
+
+def icon_pixmap(name: str, size: int = 18, colour: str = "") -> QPixmap:
+    colour = colour or C.TEXT
+    key = (name, size, colour, QApplication.instance().devicePixelRatio()
+           if QApplication.instance() else 1.0)
+    hit = _icon_cache.get(key)
+    if hit is not None:
+        return hit
+    ratio = key[3] or 1.0
+    px = QPixmap(int(size * ratio), int(size * ratio))
+    px.setDevicePixelRatio(ratio)
+    px.fill(Qt.GlobalColor.transparent)
+    p = QPainter(px)
+    p.setRenderHint(QPainter.RenderHint.Antialiasing)
+    p.scale(size * ratio / 24.0, size * ratio / 24.0)
+    path, _filled = _icon_path(name)
+    p.setPen(Qt.PenStyle.NoPen)
+    p.setBrush(QBrush(qcol(colour)))
+    p.drawPath(path)
+    p.end()
+    _icon_cache[key] = px
+    return px
+
+
+def icon(name: str, size: int = 18, colour: str = "") -> QIcon:
+    return QIcon(icon_pixmap(name, size, colour))
+
+
+def icon_label(name: str, size: int = 14, colour: str = "") -> QLabel:
+    """An icon on its own, for captions that are not buttons."""
+    lbl = QLabel()
+    lbl.setPixmap(icon_pixmap(name, size, colour))
+    lbl.setStyleSheet("background: transparent; border: none;")
+    return lbl
+
+
 class VoiceVector(QWidget):
-    """The voice of the app, drawn as one vector mark.
+    """The tutor's face: a drawn character that reacts to the lesson.
 
-    Everything here is a path, not an image: a speech bubble with a microphone
-    inside it and sound waves on both sides. The waves are what the learner
-    watches — they open out with the real audio level, lean towards the tutor's
-    terracotta while it speaks and towards the brand green while it listens, and
-    fold away to a slashed microphone when the mic is off. One glance answers
-    the only question that matters mid-sentence: is it hearing me?
+    Built from paths in a 500×500 space (the coordinates of the original mark)
+    and mapped into whatever room the widget has, so it is sharp at any size and
+    ships as code rather than as an image.
 
-    The public attributes are unchanged from the widget this replaces (`state`,
-    `speaking`, `muted`, `set_audio_level`) because the live session drives them.
+    Nothing here is decoration - every movement answers a question the learner
+    has while they are speaking:
+
+        mouth   opens with the REAL audio level, so it is the tutor's own voice
+                you see moving, not a canned loop; a flat line means the mic is
+                off and nothing is being heard
+        eyes    wide while it listens to you, narrowed while it explains,
+                looking away while it thinks, closed while it sleeps
+        halo    the state colour - brand green listening, terracotta speaking,
+                mustard thinking, rose muted
+
+    The public attributes are unchanged (`state`, `speaking`, `muted`,
+    `set_audio_level`) because the live session drives them.
     """
+
+    # The face lives in these coordinates; everything else is derived.
+    _VB = 500.0
 
     def __init__(self, face_path: str = "", assistant_name: str = "LangVis", parent=None):
         super().__init__(parent)
         self.setAttribute(Qt.WidgetAttribute.WA_OpaquePaintEvent)
-        self.setMinimumSize(300, 240)
+        self.setMinimumSize(260, 180)
         self.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
 
         self.muted    = False
@@ -318,21 +587,25 @@ class VoiceVector(QWidget):
         self.state    = "INITIALISING"
         self._assistant_name = assistant_name
 
-        self._tick    = 0
-        self._breathe = 0.0
-        self._wave    = 0.0        # 0..1, waves travelling outwards
-        self._live_amp = 0.0       # written from the audio threads
-        self._amp_disp = 0.0
+        self._tick      = 0
+        self._live_amp  = 0.0     # written from the audio threads
+        self._amp_disp  = 0.0
+        self._mouth     = 0.15    # 0 closed … 1 wide open
+        self._blink     = 0.0     # 0 open … 1 shut
+        self._next_blink = 90
+        self._gaze      = [0.0, 0.0]
+        self._gaze_to   = [0.0, 0.0]
 
         self._tmr = QTimer(self)
         self._tmr.timeout.connect(self._step)
-        self._tmr.start(33)
+        self._tmr.start(33)                     # 30 fps is plenty for a face
 
-    # -- state in -------------------------------------------------------------
+    # ── state in ─────────────────────────────────────────────────────────────
 
     def set_audio_level(self, level: float) -> None:
         """Thread-safe entry point for the audio threads: keeps the louder of
-        the new and current level so gaps between chunks do not flicker."""
+        the new and current level so gaps between chunks do not make the mouth
+        stutter."""
         try:
             lv = float(level)
         except (TypeError, ValueError):
@@ -341,12 +614,47 @@ class VoiceVector(QWidget):
 
     def _step(self):
         self._tick += 1
-        self._live_amp *= 0.82
-        self._amp_disp += (self._live_amp - self._amp_disp) * 0.4
-        self._breathe = math.sin(self._tick * (0.10 if self.speaking else 0.05))
-        self._wave = (self._wave + (0.03 if self.speaking else 0.014)) % 1.0
-        if self.speaking or self._amp_disp > 0.02 or self._tick % 3 == 0:
+        self._live_amp *= 0.8
+        self._amp_disp += (self._live_amp - self._amp_disp) * 0.45
+        amp = self._amp_disp
+
+        # The mouth: driven by real sound while speaking, barely moving while
+        # listening (so the face still feels alive), shut when muted.
+        if self.muted or self.state == "SLEEPING":
+            target = 0.0
+        elif self.speaking:
+            target = 0.22 + amp * 1.5
+        elif self.state in ("THINKING", "PROCESSING"):
+            target = 0.06
+        else:
+            target = 0.10 + amp * 0.5
+        target = max(0.0, min(1.0, target))
+        self._mouth += (target - self._mouth) * (0.5 if self.speaking else 0.25)
+
+        # Blinking: a real face blinks on its own schedule, not on the beat.
+        if self.state == "SLEEPING":
+            self._blink += (1.0 - self._blink) * 0.15
+        else:
+            if self._tick >= self._next_blink:
+                self._blink = 1.0
+                self._next_blink = self._tick + random.randint(70, 150)
+            self._blink *= 0.72
+
+        # Where it is looking: at you while listening, away while thinking.
+        if self._tick % 40 == 0:
+            if self.state in ("THINKING", "PROCESSING"):
+                self._gaze_to = [random.uniform(-4, -2), random.uniform(-3, -1)]
+            elif self.speaking:
+                self._gaze_to = [random.uniform(-2, 2), random.uniform(-1, 1)]
+            else:
+                self._gaze_to = [random.uniform(-1.5, 1.5), 0.0]
+        for i in (0, 1):
+            self._gaze[i] += (self._gaze_to[i] - self._gaze[i]) * 0.12
+
+        if self.speaking or amp > 0.02 or self._blink > 0.05 or self._tick % 3 == 0:
             self.update()
+
+    # ── what the state means ─────────────────────────────────────────────────
 
     def _tone(self) -> str:
         if self.muted:
@@ -359,57 +667,51 @@ class VoiceVector(QWidget):
             return C.TEXT_MED
         return C.PRI
 
-    def _status(self) -> tuple[str, str]:
+    def _status(self) -> str:
         if self.muted:
-            return "Microphone off", "Press F4 to switch it back on"
+            return "Microphone off"
         if self.speaking:
-            return f"{self._assistant_name} is speaking", "Press Esc to cut in"
+            return f"{self._assistant_name} is speaking"
         if self.state in ("THINKING", "PROCESSING"):
-            return "Thinking…", "One moment"
+            return "Thinking"
         if self.state == "LISTENING":
-            return "Your turn — speak", "Say a full sentence, not one word"
+            return "Your turn - speak"
         if self.state == "SLEEPING":
-            return "Sleeping", "Say the wake phrase to begin"
-        return "Getting ready…", ""
+            return "Sleeping"
+        return "Getting ready"
 
-    # -- the vector -----------------------------------------------------------
+    # ── the face, as paths ───────────────────────────────────────────────────
 
-    def _bubble_path(self, cx: float, cy: float, w: float, h: float) -> QPainterPath:
-        """A speech bubble: rounded box plus a tail on the bottom left."""
-        path = QPainterPath()
-        r = h * 0.34
-        box = QRectF(cx - w / 2, cy - h / 2, w, h)
-        path.addRoundedRect(box, r, r)
-        tail = QPainterPath()
-        bx = box.left() + w * 0.26
-        by = box.bottom() - 1
-        tail.moveTo(bx, by)
-        tail.lineTo(bx + h * 0.10, by + h * 0.26)
-        tail.lineTo(bx + h * 0.30, by)
-        tail.closeSubpath()
-        return path.united(tail)
+    @staticmethod
+    def _body() -> QPainterPath:
+        """The rounded shell: four curves, symmetrical, slightly taller than wide."""
+        p = QPainterPath()
+        p.moveTo(250, 110)
+        p.cubicTo(295, 110, 360, 175, 360, 220)
+        p.cubicTo(360, 265, 295, 330, 250, 330)
+        p.cubicTo(205, 330, 140, 265, 140, 220)
+        p.cubicTo(140, 175, 205, 110, 250, 110)
+        p.closeSubpath()
+        return p
 
-    def _mic_path(self, cx: float, cy: float, r: float) -> QPainterPath:
-        """A microphone: capsule, cradle arc and stand — all one path."""
-        path = QPainterPath()
-        cap_w, cap_h = r * 0.74, r * 1.18
-        path.addRoundedRect(QRectF(cx - cap_w / 2, cy - cap_h * 0.72, cap_w, cap_h),
-                            cap_w / 2, cap_w / 2)
-        cradle = QRectF(cx - r * 0.66, cy - r * 0.46, r * 1.32, r * 1.32)
-        arc = QPainterPath()
-        arc.arcMoveTo(cradle, 200)
-        arc.arcTo(cradle, 200, 140)
-        stroked = QPainterPathStroker()
-        stroked.setWidth(max(2.0, r * 0.15))
-        stroked.setCapStyle(Qt.PenCapStyle.RoundCap)
-        path = path.united(stroked.createStroke(arc))
-        stem = QPainterPath()
-        stem.moveTo(cx, cy + r * 0.62)
-        stem.lineTo(cx, cy + r * 0.92)
-        base = QPainterPath()
-        base.moveTo(cx - r * 0.34, cy + r * 0.95)
-        base.lineTo(cx + r * 0.34, cy + r * 0.95)
-        return path.united(stroked.createStroke(stem)).united(stroked.createStroke(base))
+    @staticmethod
+    def _eye(left: bool) -> QPainterPath:
+        """One eye socket: a tall shape with a flat bottom, mirrored."""
+        p = QPainterPath()
+        if left:
+            p.moveTo(190, 230)
+            p.lineTo(190, 195)
+            p.cubicTo(190, 178, 205, 168, 220, 168)
+            p.cubicTo(235, 168, 242, 178, 242, 195)
+            p.lineTo(242, 230)
+        else:
+            p.moveTo(258, 230)
+            p.lineTo(258, 195)
+            p.cubicTo(258, 178, 265, 168, 280, 168)
+            p.cubicTo(295, 168, 310, 178, 310, 195)
+            p.lineTo(310, 230)
+        p.closeSubpath()
+        return p
 
     def paintEvent(self, _):
         p = QPainter(self)
@@ -421,73 +723,146 @@ class VoiceVector(QWidget):
         W, H = self.width(), self.height()
         amp = self._amp_disp
         tone = self._tone()
-        span = min(W * 0.62, H * 0.92, 470)
+
+        # Room for the two lines of text under the face. The face is measured
+        # by its own bounding box (220 units of the 500 space), not by the
+        # viewBox, so it fills the room it is given.
+        text_h = 30
+        face = max(70.0, min(W * 0.5, (H - text_h) * 0.90, 300.0))
+        scale = face / 220.0
         cx = W / 2
-        cy = H * 0.44
-        bw = span * 0.52
-        bh = bw * 0.72
+        cy = (H - text_h) / 2
 
-        # sound waves: three arcs each side, opening out with the level
-        reach = span * 0.30
-        for i in range(3):
-            phase = (self._wave + i / 3.0) % 1.0
-            grow = 0.55 + phase * 0.75
-            live = amp if not self.muted else 0.0
-            alpha = int(max(0, (1.0 - phase) * (70 + live * 165)))
-            if self.muted:
-                alpha = 26
-            rr = reach * grow
-            pen = QPen(qcol(tone, alpha), max(2.0, span * 0.018))
-            pen.setCapStyle(Qt.PenCapStyle.RoundCap)
-            p.setPen(pen)
-            p.setBrush(Qt.BrushStyle.NoBrush)
-            for side in (-1, 1):
-                box = QRectF(cx + side * (bw * 0.52) - rr, cy - rr, rr * 2, rr * 2)
-                start = 320 if side == 1 else 140
-                p.drawArc(box, int(start * 16), int(80 * 16))
+        listening = not (self.speaking or self.muted or self.state == "SLEEPING")
+        thinking = self.state in ("THINKING", "PROCESSING")
 
-        # the bubble
-        breathe = 1.0 + self._breathe * 0.012 + amp * 0.05
-        bubble = self._bubble_path(cx, cy, bw * breathe, bh * breathe)
-        p.setBrush(QBrush(qcol(C.PANEL)))
-        p.setPen(QPen(qcol(tone, 235), max(2.0, span * 0.02)))
-        p.drawPath(bubble)
+        # Listening: rings travelling outwards from the shell, so an empty
+        # silence still says "I am open, keep going". They ride the real level,
+        # so louder speech pushes them further.
+        if listening and not thinking:
+            for i in range(2):
+                phase = ((self._tick * 0.011) + i * 0.5) % 1.0
+                rr = face * (0.52 + phase * 0.42)
+                alpha = int((1.0 - phase) * (36 + amp * 120))
+                if alpha <= 2:
+                    continue
+                p.setBrush(Qt.BrushStyle.NoBrush)
+                p.setPen(QPen(qcol(tone, alpha), max(1.5, face * 0.012)))
+                p.drawEllipse(QRectF(cx - rr, cy - rr, rr * 2, rr * 2))
 
-        # the microphone inside it
-        mic_r = bh * 0.33
-        p.setBrush(QBrush(qcol(tone, 255)))
+        p.save()
+        p.translate(cx, cy)
+        breathe = 1.0 + math.sin(self._tick * 0.05) * 0.012 + amp * 0.03
+        if thinking:
+            # A small sway, the way a person tips their head while working
+            # something out.
+            p.rotate(math.sin(self._tick * 0.035) * 3.0)
+        p.scale(scale * breathe, scale * breathe)
+        p.translate(-250, -220)          # the face's own centre
+
+        # a soft seat under the body instead of a blur filter
         p.setPen(Qt.PenStyle.NoPen)
-        p.drawPath(self._mic_path(cx, cy - bh * 0.02, mic_r))
+        for i in range(4):
+            p.setBrush(QBrush(qcol(C.BORDER_B, 13 - i * 2)))
+            p.drawEllipse(QRectF(168 - i * 10, 306 + i * 2, 164 + i * 20, 26 + i * 5))
 
+        # the shell, in the brand's own green, deep at the top and leafy below
+        grad = QLinearGradient(QPointF(250, 110), QPointF(250, 330))
         if self.muted:
-            pen = QPen(qcol(C.MUTED_C), max(2.5, span * 0.022))
-            pen.setCapStyle(Qt.PenCapStyle.RoundCap)
-            p.setPen(pen)
-            d = mic_r * 1.5
-            p.drawLine(QPointF(cx - d, cy + d * 0.8), QPointF(cx + d, cy - d * 0.8))
+            grad.setColorAt(0.0, qcol("#7e8a80"))
+            grad.setColorAt(0.5, qcol("#93a08f"))
+            grad.setColorAt(1.0, qcol("#b6c0a6"))
+        else:
+            grad.setColorAt(0.0, qcol("#137a63"))      # forest crown
+            grad.setColorAt(0.42, qcol("#1fa872"))     # emerald
+            grad.setColorAt(0.78, qcol("#64b348"))     # leaf
+            grad.setColorAt(1.0, qcol("#bdd977"))      # young leaf
+        body = self._body()
+        p.setBrush(QBrush(grad))
+        p.setPen(QPen(qcol(C.WHITE, 26), 2))
+        p.drawPath(body)
 
-        # a dot of the live level, sitting in the bubble's own corner
-        if not self.muted and amp > 0.04:
-            rr = max(3.0, span * 0.016) * (1 + amp)
+        # the state, as a rim of light around the shell
+        p.setBrush(Qt.BrushStyle.NoBrush)
+        p.setPen(QPen(qcol(tone, 120 if not self.speaking else 210),
+                      4 + amp * 7))
+        p.drawPath(body)
+
+        # ── eyes ─────────────────────────────────────────────────────────────
+        open_y = {"THINKING": 0.82, "PROCESSING": 0.82}.get(self.state, 1.0)
+        if self.speaking:
+            open_y = 0.88                      # a little narrowed, explaining
+        if self.muted:
+            open_y = 0.45
+        open_y *= max(0.06, 1.0 - self._blink)
+
+        for left in (True, False):
+            socket = self._eye(left)
+            centre = QPointF(216 if left else 284, 199)
+            p.save()
+            p.translate(centre)
+            p.scale(1.0, open_y)
+            p.translate(-centre.x(), -centre.y())
             p.setPen(Qt.PenStyle.NoPen)
-            p.setBrush(QBrush(qcol(tone, 200)))
-            p.drawEllipse(QPointF(cx + bw * 0.34, cy - bh * 0.30), rr, rr)
+            p.setBrush(QBrush(qcol(C.PANEL)))
+            p.drawPath(socket)
+            # the pupil follows the gaze, and stays inside the socket
+            p.setBrush(QBrush(qcol(C.WHITE)))
+            px = (204 if left else 272) + self._gaze[0]
+            py = 193 + self._gaze[1]
+            p.drawRoundedRect(QRectF(px, py, 20, 20), 4, 4)
+            # a catch-light, so the eye reads as wet rather than printed
+            p.setBrush(QBrush(qcol(C.PANEL, 190)))
+            p.drawEllipse(QRectF(px + 12, py + 3, 5, 5))
+            p.restore()
 
-        # what is happening, in words
-        head, hint = self._status()
-        y = cy + bh * 0.95
+        # ── thinking: three dots above the head, in sequence ─────────────────
+        if thinking:
+            p.setPen(Qt.PenStyle.NoPen)
+            for i in range(3):
+                phase = (self._tick * 0.05 - i * 0.6) % 2.4
+                lift = max(0.0, math.sin(phase * 1.3)) if phase < 2.4 else 0.0
+                r = 7 + lift * 4
+                p.setBrush(QBrush(qcol(C.ACC2, int(70 + lift * 150))))
+                p.drawEllipse(QPointF(214 + i * 36, 86 - lift * 10), r, r)
+
+        # ── mouth ────────────────────────────────────────────────────────────
+        open_amount = self._mouth
+        p.setPen(Qt.PenStyle.NoPen)
+        if open_amount < 0.06:
+            # shut: one soft line, which is what "not hearing you" looks like
+            p.setBrush(QBrush(qcol(C.WHITE)))
+            p.drawRoundedRect(QRectF(232, 252, 36, 5), 2.5, 2.5)
+        else:
+            h = 8 + open_amount * 30          # how far the jaw drops
+            w = 38 + open_amount * 10
+            mouth = QPainterPath()
+            rect = QRectF(250 - w / 2, 248, w, h)
+            mouth.addRoundedRect(rect, w * 0.35, min(h * 0.5, w * 0.35))
+            p.setBrush(QBrush(qcol(C.WHITE)))
+            p.drawPath(mouth)
+            # the tongue, only once the mouth is properly open
+            if open_amount > 0.35:
+                t_h = (h - 6) * 0.45
+                tongue = QRectF(250 - (w - 16) / 2, 248 + h - t_h - 3,
+                                w - 16, t_h)
+                p.setBrush(QBrush(qcol(C.ACC, 210)))
+                p.drawRoundedRect(tongue, t_h * 0.5, t_h * 0.5)
+        p.restore()
+
+        # ── what is happening, in two words ──────────────────────────────────
+        # Pinned to the bottom of the widget rather than measured from the
+        # face: at a large size the old sum pushed the line onto the panel
+        # below, which is what made the two overlap.
+        y = min(cy + face * 0.60, H - text_h + 2)
         p.setPen(QPen(qcol(tone), 1))
-        p.setFont(font(15, True))
-        p.drawText(QRectF(0, y, W, 26), Qt.AlignmentFlag.AlignCenter, head)
-        if hint:
-            p.setPen(QPen(qcol(C.TEXT_DIM), 1))
-            p.setFont(font(10))
-            p.drawText(QRectF(0, y + 24, W, 20), Qt.AlignmentFlag.AlignCenter, hint)
+        p.setFont(font(14, True))
+        p.drawText(QRectF(0, y, W, 24), Qt.AlignmentFlag.AlignCenter, self._status())
         p.end()
 
 
 class SoftBar(QWidget):
-    """A rounded progress bar with a caption — unit progress, skill mastery.
+    """A rounded progress bar with a caption - unit progress, skill mastery.
 
     Painted rather than a QProgressBar because the caption, the value and the
     colour belong together: one widget, one line of layout, and the colour says
@@ -558,7 +933,7 @@ class ChatView(QScrollArea):
     """The lesson as a conversation: bubbles, not a log.
 
     What scrolled past as terminal lines is exactly what a learner needs to
-    re-read — what they said, how it should have been said, what they were
+    re-read - what they said, how it should have been said, what they were
     asked. Their own sentences sit on the right in the brand colour, the
     tutor's on the left on paper, and the app's own remarks shrink to a small
     line that competes with neither.
@@ -590,7 +965,7 @@ class ChatView(QScrollArea):
 
         self._rows: list[QWidget] = []
         self._placeholder = QLabel("Your lesson appears here.\n"
-                                   "Start talking — the tutor is listening.")
+                                   "Start talking - the tutor is listening.")
         self._placeholder.setFont(font(10))
         self._placeholder.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self._placeholder.setStyleSheet(
@@ -909,7 +1284,7 @@ class HueWheel(QWidget):
 
 
 class CustomizeOverlay(QWidget):
-    """Floating overlay — change assistant name, user name, UI colour and voice."""
+    """Floating overlay - change assistant name, user name, UI colour and voice."""
 
     saved = pyqtSignal(str, str, str, str)   # assistant_name, user_name, ui_color, voice
     _OW, _OH = 400, 588
@@ -990,7 +1365,7 @@ class CustomizeOverlay(QWidget):
         # ── UI colour — colour wheel ─────────────────────────────────────────
         lay.addSpacing(4)
         clr_hdr = QHBoxLayout()
-        clr_hdr.addWidget(_lbl("UI COLOUR  —  drag the handle", 8,
+        clr_hdr.addWidget(_lbl("UI COLOUR  -  drag the handle", 8,
                                color=C.TEXT_DIM, align=Qt.AlignmentFlag.AlignLeft))
         clr_hdr.addStretch()
         df_btn = QPushButton("DEFAULT")
@@ -1152,7 +1527,7 @@ class AudioDeviceOverlay(_HudOverlay):
     """Choose which microphone LangVis listens to and which speakers it uses.
 
     Both audio streams used to open with no `device=` at all, so they always
-    took the OS default — which on Windows moves by itself the moment a headset
+    took the OS default - which on Windows moves by itself the moment a headset
     is plugged in. 'LangVis can't hear me' is usually 'LangVis is listening to the
     webcam'."""
 
@@ -1215,10 +1590,10 @@ class AudioDeviceOverlay(_HudOverlay):
             lay.addWidget(box)
             return box
 
-        self._in_box  = _row("MICROPHONE — what LangVis hears you with",
+        self._in_box  = _row("MICROPHONE - what LangVis hears you with",
                              "input", get_input_device())
         lay.addSpacing(4)
-        self._out_box = _row("SPEAKERS — what LangVis talks through",
+        self._out_box = _row("SPEAKERS - what LangVis talks through",
                              "output", get_output_device())
 
         note = QLabel("Applying reconnects the session. Your conversation is kept.")
@@ -1276,7 +1651,7 @@ class MemoryOverlay(_HudOverlay):
 
     Memory used to be a 2200-character store that deleted its oldest entries
     when full and mentioned it only on stdout. The cap is gone; this panel is
-    the other half of that change — a memory you cannot inspect is a memory you
+    the other half of that change - a memory you cannot inspect is a memory you
     cannot trust, and 'delete' has to be something the person can do."""
 
     _OW = 520
@@ -1304,7 +1679,7 @@ class MemoryOverlay(_HudOverlay):
 
         deleteLater() on its own is not enough: it queues destruction for the
         next event-loop pass, and until then the old rows are still children of
-        this widget and still paint — which is what drew half of the previous
+        this widget and still paint - which is what drew half of the previous
         panel over the new one. setParent(None) removes them from the tree now;
         deleteLater() then frees them safely."""
         while self._lay.count():
@@ -1337,8 +1712,8 @@ class MemoryOverlay(_HudOverlay):
         because Qt has not polished the freshly-created children at that point,
         so the size hint it would read is the empty-layout one. Measured: a
         first adjustSize() returned 32 px for a panel whose content needed 155,
-        and a second call — after the same widgets had been through the event
-        loop — returned 155. So this runs twice: once now, once on the next
+        and a second call - after the same widgets had been through the event
+        loop - returned 155. So this runs twice: once now, once on the next
         turn, from _rebuild.
 
         The re-centre and the repaint are needed because the overlay is placed
@@ -1412,7 +1787,7 @@ class MemoryOverlay(_HudOverlay):
                 txt.setStyleSheet(f"color: {C.TEXT}; background: transparent;")
                 line.addWidget(txt, 1)
 
-                meta = QLabel(f"{r['category'][:4]} · {r['updated'] or '—'}")
+                meta = QLabel(f"{r['category'][:4]} · {r['updated'] or '-'}")
                 meta.setFont(QFont(_UI_FONT, 9))
                 meta.setStyleSheet(f"color: {C.TEXT_DIM}; background: transparent;")
                 line.addWidget(meta)
@@ -1468,12 +1843,12 @@ class MemoryOverlay(_HudOverlay):
 
 
 class PluginSettingsOverlay(QWidget):
-    """Floating overlay — renders per-plugin settings forms.
+    """Floating overlay - renders per-plugin settings forms.
 
     Fully generic: it iterates the settings schemas a plugin declared via its
     PLUGIN_SETTINGS constant (delivered by PluginRegistry.settings_schemas) and
     builds a form for each. It knows NOTHING about any specific plugin, so the
-    core stays clean and plugins remain pure drop-in — install a plugin that
+    core stays clean and plugins remain pure drop-in - install a plugin that
     declares fields (e.g. the 3D-printer suite) and its section appears here;
     install none and this panel simply says there's nothing to configure.
     """
@@ -1723,7 +2098,7 @@ class AssistantPanel(QScrollArea):
     """The middle of the window: what you just said, and what to do about it.
 
     The transcript is closed by default, which leaves this the largest thing on
-    screen — so it is where the actual teaching is shown rather than a status
+    screen - so it is where the actual teaching is shown rather than a status
     readout. Four blocks, in the order a learner reads them:
 
         YOU SAID     their sentence, the wrong parts in red
@@ -1744,6 +2119,7 @@ class AssistantPanel(QScrollArea):
         super().__init__(parent)
         self.get_coaching = None          # set by LangVisUI; () -> dict
         self._stamp = None
+        self._live = ""                   # what is being said right now
 
         self.setWidgetResizable(True)
         self.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
@@ -1769,9 +2145,9 @@ class AssistantPanel(QScrollArea):
 
         # ── the sentence, then the fix ───────────────────────────────────────
         self._said_card, self._said_cap, self._said_body = self._card(
-            "YOU SAID", C.TEXT_DIM)
+            "YOU SAID", C.TEXT_DIM, mark="quote")
         self._fix_card, self._fix_cap, self._fix_body = self._card(
-            "CORRECTED", C.GREEN)
+            "CORRECTED", C.GREEN, mark="check")
         self._notes = QLabel("")
         self._notes.setFont(font(10))
         self._notes.setWordWrap(True)
@@ -1781,7 +2157,7 @@ class AssistantPanel(QScrollArea):
 
         # ── the rule behind the mistake ──────────────────────────────────────
         self._tip_card, self._tip_cap, self._tip_body = self._card(
-            "TIP", C.ACC, fill=C.PANEL)
+            "TIP", C.ACC, fill=C.PANEL, mark="bulb")
         self._tip_card.setStyleSheet(
             f"QWidget#Card {{ background: {C.PANEL}; border: 1px solid {C.BORDER_A};"
             f" border-left: 3px solid {C.ACC}; border-radius: 12px; }}")
@@ -1794,7 +2170,7 @@ class AssistantPanel(QScrollArea):
 
         # ── a better version, one level up ───────────────────────────────────
         self._better_card, self._better_cap, self._better_body = self._card(
-            "SAY IT BETTER", C.PRI, fill=C.PRI_GHO)
+            "SAY IT BETTER", C.PRI, fill=C.PRI_GHO, mark="arrow-up")
         self._better_uses = QLabel("")
         self._better_uses.setFont(font(9))
         self._better_uses.setWordWrap(True)
@@ -1813,7 +2189,8 @@ class AssistantPanel(QScrollArea):
 
     # ── one card ─────────────────────────────────────────────────────────────
 
-    def _card(self, caption: str, ink: str, fill: str = "") -> tuple:
+    def _card(self, caption: str, ink: str, fill: str = "",
+              mark: str = "") -> tuple:
         card = QWidget()
         card.setObjectName("Card")
         card.setStyleSheet(
@@ -1823,11 +2200,17 @@ class AssistantPanel(QScrollArea):
         lay.setContentsMargins(14, 10, 14, 12)
         lay.setSpacing(5)
 
+        cap_row = QHBoxLayout()
+        cap_row.setSpacing(6)
+        if mark:
+            cap_row.addWidget(icon_label(mark, 13, ink))
         cap = QLabel(caption)
         cap.setFont(font(9, True))
         cap.setStyleSheet(f"color: {ink}; background: transparent; border: none;"
                           f"letter-spacing: 1px;")
-        lay.addWidget(cap)
+        cap_row.addWidget(cap)
+        cap_row.addStretch()
+        lay.addLayout(cap_row)
 
         body = QLabel("")
         body.setFont(font(14))
@@ -1839,6 +2222,34 @@ class AssistantPanel(QScrollArea):
 
         self._lay.insertWidget(self._lay.count(), card)
         return card, cap, body
+
+    # ── live, while they are still speaking ──────────────────────────────────
+
+    def set_live(self, text: str, final: bool = False) -> None:
+        """Show the sentence as it is transcribed, before any analysis exists.
+
+        Waiting for the analyser meant a second or two of blank screen after
+        every sentence, which reads as "it did not hear me". So the words land
+        as they are spoken, greyed, and the marked-up version replaces them in
+        place when the analysis arrives.
+        """
+        text = (text or "").strip()
+        if not text:
+            return
+        self._live = text
+        self._idle.hide()
+        self._said_cap.setText("LISTENING\u2026" if not final else "CHECKING\u2026")
+        self._said_cap.setStyleSheet(
+            f"color: {C.PRI if not final else C.ACC2}; background: transparent;"
+            f"border: none; letter-spacing: 1px;")
+        import html as _html
+        self._said_body.setText(
+            f'<span style="color:{C.TEXT_MED};">{_html.escape(text)}</span>')
+        self._said_card.show()
+        # The previous sentence's correction is no longer about what is on
+        # screen, so it goes rather than sitting there looking current.
+        for card in (self._fix_card, self._tip_card, self._better_card):
+            card.hide()
 
     # ── rendering ────────────────────────────────────────────────────────────
 
@@ -1877,7 +2288,7 @@ class AssistantPanel(QScrollArea):
         # YOU SAID — red on the parts that need work
         self._said_body.setText(self._tokens_html(
             card.get("said_tokens", []), "bad", C.RED, C.WHITE, underline=True))
-        self._said_cap.setText("YOU SAID" if not clean else "YOU SAID — correct")
+        self._said_cap.setText("YOU SAID" if not clean else "YOU SAID - correct")
         self._said_cap.setStyleSheet(
             f"color: {C.GREEN if clean else C.TEXT_DIM}; background: transparent;"
             f"border: none; letter-spacing: 1px;")
@@ -1914,7 +2325,7 @@ class AssistantPanel(QScrollArea):
                 ("uses: " + ", ".join(uses)) if uses else "")
             self._better_uses.setVisible(bool(uses))
             self._better_cap.setText(
-                "SAY IT BETTER" if not clean else "CORRECT — NOW SAY IT BETTER")
+                "SAY IT BETTER" if not clean else "CORRECT - NOW SAY IT BETTER")
             self._better_card.show()
         else:
             self._better_card.hide()
@@ -1934,12 +2345,14 @@ class AssistantPanel(QScrollArea):
             self._tip_card.hide()
 
 
-class ChecklistStrip(QWidget):
-    """The unit's words and phrasal verbs, ticked off as they are used.
+class DictionaryPanel(QWidget):
+    """The learner's live dictionary.
 
-    The tutor keeps feeding these into the conversation; this is the learner's
-    side of that bargain — what is still owed, and what is already theirs. An
-    item ticks after two uses in their own sentences, never on hearing it.
+    There is no fixed word list in the course: the analyser proposes words and
+    phrasal verbs from whatever the learner is actually talking about, and they
+    sit here until used. An item ticks after two uses of their own - hearing it
+    never counts - and then joins the learned pile with a count that only goes
+    up.
     """
 
     POLL_MS = 1200
@@ -1957,7 +2370,9 @@ class ChecklistStrip(QWidget):
         self._lay.setSpacing(7)
 
         head = QHBoxLayout()
-        self._cap = QLabel("WORDS TO USE")
+        head.setSpacing(7)
+        head.addWidget(icon_label("bookmark", 13, C.PRI))
+        self._cap = QLabel("YOUR DICTIONARY")
         self._cap.setFont(font(9, True))
         self._cap.setStyleSheet(f"color: {C.TEXT_DIM}; background: transparent;"
                                 f"border: none; letter-spacing: 1px;")
@@ -1965,16 +2380,36 @@ class ChecklistStrip(QWidget):
         head.addStretch()
         self._count = QLabel("")
         self._count.setFont(font(9, True))
-        self._count.setStyleSheet(f"color: {C.PRI}; background: transparent;"
+        self._count.setStyleSheet(f"color: {C.GREEN}; background: transparent;"
                                   f"border: none;")
         head.addWidget(self._count)
         self._lay.addLayout(head)
+
+        self._topic = QLabel("")
+        self._topic.setFont(font(9))
+        self._topic.setWordWrap(True)
+        self._topic.setStyleSheet(f"color: {C.TEXT_DIM}; background: transparent;"
+                                  f"border: none;")
+        self._lay.addWidget(self._topic)
 
         self._grid = QGridLayout()
         self._grid.setHorizontalSpacing(6)
         self._grid.setVerticalSpacing(5)
         self._lay.addLayout(self._grid)
         self._chips: list[QLabel] = []
+
+        self._learned_cap = QLabel("LEARNED")
+        self._learned_cap.setFont(font(9, True))
+        self._learned_cap.setStyleSheet(
+            f"color: {C.TEXT_DIM}; background: transparent; border: none;"
+            f"letter-spacing: 1px;")
+        self._lay.addWidget(self._learned_cap)
+        self._learned = QLabel("")
+        self._learned.setFont(font(10))
+        self._learned.setWordWrap(True)
+        self._learned.setStyleSheet(f"color: {C.GREEN}; background: transparent;"
+                                    f"border: none;")
+        self._lay.addWidget(self._learned)
 
         self._timer = QTimer(self)
         self._timer.timeout.connect(self._refresh)
@@ -1986,42 +2421,47 @@ class ChecklistStrip(QWidget):
             lbl = QLabel()
             lbl.setFont(font(10))
             lbl.setAlignment(Qt.AlignmentFlag.AlignCenter)
-            self._grid.addWidget(lbl, len(self._chips) // 4, len(self._chips) % 4)
+            self._grid.addWidget(lbl, len(self._chips) // 3, len(self._chips) % 3)
             self._chips.append(lbl)
         return self._chips[index]
 
     def _refresh(self):
         try:
             card = self.get_coaching() if callable(self.get_coaching) else {}
-            lex = (card or {}).get("checklist") or {}
+            book = (card or {}).get("dictionary") or {}
         except Exception:
-            lex = {}
-        rows = [(r, "word") for r in lex.get("words", [])] + \
-               [(r, "phrasal") for r in lex.get("phrasals", [])]
-        sig = [(r["text"], r["checked"], r["uses"]) for r, _ in rows]
+            card, book = {}, {}
+        active = (book.get("active") or [])[:9]
+        recent = book.get("recent", [])
+        sig = ([(i["text"], i["uses"]) for i in active],
+               [r["text"] for r in recent], book.get("words"), book.get("phrasals"))
         if sig == self._signature:
             return
         self._signature = sig
 
         self._count.setText(
-            f"{lex.get('words_done', 0)}/{lex.get('words_needed', 0)} words  ·  "
-            f"{lex.get('phrasals_done', 0)}/{lex.get('phrasals_needed', 0)} phrasals"
-            if rows else "")
+            f"{book.get('words', 0)} words \u00b7 {book.get('phrasals', 0)} phrasals"
+            if book else "")
+        topics = [i.get("topic") for i in active if i.get("topic")]
+        self._topic.setText(
+            f"from what you are talking about: {topics[0]}" if topics
+            else "words appear here from your own topics")
 
-        for i, (row, kind) in enumerate(rows):
+        need = book.get("needed", 2)
+        for i, item in enumerate(active):
             chip = self._chip(i)
-            mark = "✓ " if row["checked"] else ""
-            trail = "" if row["checked"] else (f"  {row['uses']}/2" if row["uses"] else "")
-            chip.setText(f"{mark}{row['text']}{trail}")
-            if row["checked"]:
-                chip.setStyleSheet(pill_style(C.GREEN, C.GREEN_GHO, 10))
-            elif kind == "phrasal":
-                chip.setStyleSheet(pill_style(C.PRI, C.PRI_GHO, 10))
-            else:
-                chip.setStyleSheet(pill_style(C.TEXT_MED, C.PANEL2, 10))
+            trail = f"  {item['uses']}/{need}" if item["uses"] else ""
+            chip.setText(f"{item['text']}{trail}")
+            chip.setStyleSheet(pill_style(
+                C.PRI if item["kind"] == "phrasal" else C.TEXT_MED,
+                C.PRI_GHO if item["kind"] == "phrasal" else C.PANEL2, 10))
             chip.show()
-        for i in range(len(rows), len(self._chips)):
+        for i in range(len(active), len(self._chips)):
             self._chips[i].hide()
+
+        self._learned_cap.setVisible(bool(recent))
+        self._learned.setVisible(bool(recent))
+        self._learned.setText("  ".join(f"\u2713 {r['text']}" for r in recent))
 
 
 class UnitRow(QWidget):
@@ -2029,7 +2469,7 @@ class UnitRow(QWidget):
 
     Two lines, never three: the number and title, then the grammar it teaches,
     cut off with an ellipsis rather than wrapped. The methods and the sentences
-    live in the sheet that opens on click — a list that tries to say everything
+    live in the sheet that opens on click - a list that tries to say everything
     stops being a list you can scan.
     """
 
@@ -2104,7 +2544,7 @@ class UnitRow(QWidget):
 class SyllabusPanel(QScrollArea):
     """The whole course, in order, with the learner's place in it.
 
-    A learner who cannot see the road does not believe there is one — so every
+    A learner who cannot see the road does not believe there is one - so every
     stage and all twenty-four units are listed, finished ones ticked, the
     current one marked, and each row opens the unit's sentences and methods.
 
@@ -2176,7 +2616,7 @@ class SyllabusPanel(QScrollArea):
         lay.addLayout(row)
 
         if stage.get("emphasis"):
-            short = stage["emphasis"].split("—")[0].strip()
+            short = stage["emphasis"].split("-")[0].strip()
             note = QLabel(f"trains {short}")
             note.setFont(font(9))
             note.setToolTip(stage["emphasis"])
@@ -2291,9 +2731,10 @@ class UnitSheet(_HudOverlay):
                              f"letter-spacing: 1px;")
         top.addWidget(kicker)
         top.addStretch()
-        close = QPushButton("Close")
-        close.setFont(font(9))
-        close.setFixedHeight(26)
+        close = QPushButton()
+        close.setIcon(icon("close", 13, C.TEXT_MED))
+        close.setIconSize(QSize(13, 13))
+        close.setFixedSize(26, 26)
         close.setCursor(Qt.CursorShape.PointingHandCursor)
         close.setStyleSheet(btn_soft(8))
         close.clicked.connect(self._dismiss)
@@ -2319,8 +2760,25 @@ class UnitSheet(_HudOverlay):
 
         grammar = "; ".join(f"{s} ({h})" for s, h in
                             zip(unit.get("skills", []), unit.get("hints", [])))
-        _row("GRAMMAR", grammar or "—", C.PRI)
-        _row("THEME", unit.get("theme", ""))
+        _row("GRAMMAR", grammar or "-", C.PRI)
+
+        for tip in unit.get("tips", []):
+            if not tip.get("rule"):
+                continue
+            cap = QLabel(f"RULE \u00b7 {tip['title'].upper()}")
+            cap.setFont(font(9, True))
+            cap.setStyleSheet(f"color: {C.ACC}; background: transparent;"
+                              f"letter-spacing: 1px;")
+            lay.addWidget(cap)
+            rule = QLabel(tip["rule"] + "\n"
+                          + "\n".join(f"\u2022 {ex}" for ex in tip.get("examples", [])))
+            rule.setFont(font(10))
+            rule.setWordWrap(True)
+            rule.setStyleSheet(
+                f"color: {C.TEXT}; background: {C.PANEL2}; border: none;"
+                f"border-left: 3px solid {C.ACC}; border-radius: 8px;"
+                f"padding: 7px 10px;")
+            lay.addWidget(rule)
 
         cap = QLabel("SAY IT LIKE THIS")
         cap.setFont(font(9, True))
@@ -2353,7 +2811,6 @@ class UnitSheet(_HudOverlay):
                     f"padding: 7px 10px;")
                 lay.addWidget(card)
 
-        _row("YOUR TASK", unit.get("task", ""))
         _row("WHEN IT IS DONE", f"You can {unit.get('can_do', '')}.")
         if unit.get("missing"):
             _row("STILL MISSING", "; ".join(unit["missing"]), C.ACC)
@@ -2371,6 +2828,7 @@ class MainWindow(QMainWindow):
     _content_sig    = pyqtSignal(str, str)   # (title, text) — thread-safe content display
     _reconfig_sig   = pyqtSignal()           # trigger setup overlay from any thread
     _wake_dl_sig    = pyqtSignal(bool, str)  # wake-word install finished (ok, message)
+    _live_sig       = pyqtSignal(str, bool)  # the sentence being spoken right now
 
     def __init__(self, face_path: str):
         super().__init__()
@@ -2452,6 +2910,8 @@ class MainWindow(QMainWindow):
         self._content_sig.connect(self._show_content)
         self._reconfig_sig.connect(self._show_setup)
         self._wake_dl_sig.connect(self._on_wake_install_done)
+        self._live_sig.connect(
+            lambda text, final: self._assistant.set_live(text, final))
 
         self._overlay: SetupOverlay | None = None
         self._ready = self._check_config()
@@ -2571,7 +3031,7 @@ class MainWindow(QMainWindow):
         """
         Create a Windows .lnk shortcut WITHOUT launching PowerShell or cmd.
         Tries win32com (pywin32) first; falls back to wscript.exe + VBScript.
-        wscript.exe is a GUI-mode host — it never opens a console window.
+        wscript.exe is a GUI-mode host - it never opens a console window.
         """
         # ── Option 1: pywin32 (pure Python COM, zero subprocess) ──────────
         try:
@@ -2622,7 +3082,7 @@ class MainWindow(QMainWindow):
         Resolve the user's REAL desktop directory instead of assuming
         ~/Desktop, which breaks when:
           • OneDrive "Known Folder Move" relocates the desktop
-            (C:/Users/x/OneDrive/Desktop) — very common on Win 10/11;
+            (C:/Users/x/OneDrive/Desktop) - very common on Win 10/11;
           • the XDG desktop is localized on Linux (~/Masaüstü,
             ~/Schreibtisch, ~/Bureau, …).
         Falls back to ~/Desktop only as a last resort.
@@ -2843,91 +3303,118 @@ class MainWindow(QMainWindow):
             self._position_quick_drawer()
 
     def _build_header(self) -> QWidget:
+        """The bar, read from the right: the brand sits at the end of the row
+        and the switches come first, which is the order asked for. One height
+        (32px) for everything, hairlines between the groups.
+        """
         w = QWidget()
-        w.setFixedHeight(64)
+        w.setFixedHeight(58)
         w.setStyleSheet(f"background: {C.DARK}; border-bottom: 1px solid {C.BORDER};")
         lay = QHBoxLayout(w)
-        lay.setContentsMargins(16, 9, 16, 9)
-        lay.setSpacing(14)
+        lay.setContentsMargins(16, 0, 16, 0)
+        lay.setSpacing(12)
+        mid = Qt.AlignmentFlag.AlignVCenter
 
-        # The mark: the brand's initial in a rounded tile. Drawn, not shipped,
-        # so renaming the tutor renames the logo too.
-        self._mark = QLabel((self._assistant_name or "L")[:1].upper())
-        self._mark.setFixedSize(34, 34)
-        self._mark.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self._mark.setFont(font(15, True))
-        self._mark.setStyleSheet(
-            f"color: {C.PANEL}; background: {C.PRI}; border-radius: 10px;")
-        lay.addWidget(self._mark)
-
-        name_col = QVBoxLayout()
-        name_col.setSpacing(0)
-        self._title_lbl = QLabel(self._assistant_name)
-        self._title_lbl.setFont(font(15, True))
-        self._title_lbl.setStyleSheet(f"color: {C.WHITE}; background: transparent;")
-        name_col.addWidget(self._title_lbl)
-        self._sub_lbl = QLabel("speaking course")
-        self._sub_lbl.setFont(font(9))
-        self._sub_lbl.setStyleSheet(f"color: {C.TEXT_DIM}; background: transparent;")
-        name_col.addWidget(self._sub_lbl)
-        lay.addLayout(name_col)
-
-        lay.addSpacing(6)
-
-        # The language select. Slovak is listed and visibly not ready, rather
-        # than hidden: the learner asked for it, so it belongs on screen.
-        self._lang_select = QComboBox()
-        self._lang_select.setFixedHeight(34)
-        self._lang_select.setMinimumWidth(190)
-        self._lang_select.setFont(font(11, True))
-        self._lang_select.setCursor(Qt.CursorShape.PointingHandCursor)
-        self._lang_select.setStyleSheet(combo_style(10, accent=True))
-        self._lang_select.currentIndexChanged.connect(self._on_language_picked)
-        lay.addWidget(self._lang_select)
-
-        lay.addStretch()
-
-        self._level_pill = QLabel("")
-        self._level_pill.setFont(font(11, True))
-        self._level_pill.setFixedHeight(30)
-        self._level_pill.setStyleSheet(pill_style(C.PRI, C.PRI_GHO))
-        lay.addWidget(self._level_pill)
-
-        self._today_pill = QLabel("")
-        self._today_pill.setFont(font(10))
-        self._today_pill.setFixedHeight(30)
-        self._today_pill.setStyleSheet(pill_style(C.TEXT_MED, C.PANEL2))
-        lay.addWidget(self._today_pill)
-
-        # Folds the right-hand column (words and conversation) away when the
-        # coaching in the middle wants the whole window.
-        self._transcript_btn = QPushButton("Conversation")
-        self._transcript_btn.setFixedHeight(30)
-        self._transcript_btn.setCheckable(True)
-        self._transcript_btn.setFont(font(10, True))
-        self._transcript_btn.setCursor(Qt.CursorShape.PointingHandCursor)
-        self._transcript_btn.setStyleSheet(btn_soft(10))
-        self._transcript_btn.clicked.connect(
-            lambda: self._toggle_transcript(self._transcript_btn.isChecked()))
-        lay.addWidget(self._transcript_btn)
-
-        self._drawer_btn = QPushButton("⚙")
-        self._drawer_btn.setFixedSize(34, 34)
-        self._drawer_btn.setFont(font(14))
+        self._drawer_btn = QPushButton()
+        self._drawer_btn.setIcon(icon("gear", 17, C.TEXT_MED))
+        self._drawer_btn.setIconSize(QSize(17, 17))
+        self._drawer_btn.setFixedSize(32, 32)
         self._drawer_btn.setCursor(Qt.CursorShape.PointingHandCursor)
         self._drawer_btn.setToolTip("Settings")
         self._drawer_btn.setStyleSheet(f"""
             QPushButton {{
                 background: {C.PANEL2}; color: {C.TEXT_MED};
-                border: none; border-radius: 10px;
+                border: none; border-radius: 9px;
             }}
             QPushButton:hover {{ color: {C.PRI}; background: {C.PRI_GHO}; }}
             QPushButton:checked {{ color: {C.PANEL}; background: {C.PRI}; }}
         """)
         self._drawer_btn.setCheckable(True)
         self._drawer_btn.clicked.connect(self._toggle_drawer)
-        lay.addWidget(self._drawer_btn)
+        lay.addWidget(self._drawer_btn, alignment=mid)
+
+        # Folds the right-hand column (dictionary and conversation) away when
+        # the coaching in the middle wants the whole window.
+        self._transcript_btn = QPushButton("Conversation")
+        self._transcript_btn.setFixedHeight(32)
+        self._transcript_btn.setCheckable(True)
+        self._transcript_btn.setFont(font(10, True))
+        self._transcript_btn.setCursor(Qt.CursorShape.PointingHandCursor)
+        self._transcript_btn.setIcon(icon("chat", 15, C.TEXT_MED))
+        self._transcript_btn.setIconSize(QSize(15, 15))
+        self._transcript_btn.setStyleSheet(btn_soft(9))
+        self._transcript_btn.clicked.connect(
+            lambda: self._toggle_transcript(self._transcript_btn.isChecked()))
+        lay.addWidget(self._transcript_btn, alignment=mid)
+
+        lay.addSpacing(2)
+        lay.addWidget(self._rule(), alignment=mid)
+        lay.addSpacing(2)
+
+        self._today_pill = QLabel("")
+        self._today_pill.setFont(font(10))
+        self._today_pill.setFixedHeight(32)
+        self._today_pill.setStyleSheet(pill_style(C.TEXT_MED, C.PANEL2, 9))
+        lay.addWidget(self._today_pill, alignment=mid)
+
+        self._level_pill = QLabel("")
+        self._level_pill.setFont(font(11, True))
+        self._level_pill.setFixedHeight(32)
+        self._level_pill.setStyleSheet(pill_style(C.PRI, C.PRI_GHO, 9))
+        lay.addWidget(self._level_pill, alignment=mid)
+
+        lay.addStretch()
+
+        # The language select. Slovak is listed and visibly not ready rather
+        # than hidden: the learner is waiting for it.
+        self._lang_select = QComboBox()
+        self._lang_select.setFixedHeight(32)
+        self._lang_select.setMinimumWidth(168)
+        self._lang_select.setFont(font(11, True))
+        self._lang_select.setCursor(Qt.CursorShape.PointingHandCursor)
+        self._lang_select.setStyleSheet(combo_style(9, accent=True))
+        self._lang_select.currentIndexChanged.connect(self._on_language_picked)
+        lay.addWidget(self._lang_select, alignment=mid)
+
+        lay.addSpacing(4)
+        lay.addWidget(self._rule(), alignment=mid)
+        lay.addSpacing(4)
+
+        brand = QVBoxLayout()
+        brand.setSpacing(0)
+        brand.setContentsMargins(0, 0, 0, 0)
+        self._title_lbl = QLabel(self._assistant_name)
+        self._title_lbl.setFont(font(15, True))
+        self._title_lbl.setAlignment(Qt.AlignmentFlag.AlignRight)
+        self._title_lbl.setStyleSheet(f"color: {C.WHITE}; background: transparent;")
+        brand.addWidget(self._title_lbl)
+        self._sub_lbl = QLabel("speaking course")
+        self._sub_lbl.setFont(font(9))
+        self._sub_lbl.setAlignment(Qt.AlignmentFlag.AlignRight)
+        self._sub_lbl.setStyleSheet(f"color: {C.TEXT_DIM}; background: transparent;")
+        brand.addWidget(self._sub_lbl)
+        lay.addLayout(brand)
+
+        # The mark: the brand's initial in a rounded tile, drawn rather than
+        # shipped, so renaming the tutor renames the logo too.
+        self._mark = QLabel((self._assistant_name or "L")[:1].upper())
+        self._mark.setFixedSize(32, 32)
+        self._mark.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self._mark.setFont(font(14, True))
+        self._mark.setStyleSheet(
+            f"color: {C.PANEL}; background: {C.PRI}; border-radius: 9px;")
+        lay.addWidget(self._mark, alignment=mid)
         return w
+
+    @staticmethod
+    def _rule() -> QWidget:
+        """A hairline divider: what separates the groups in the bar, instead of
+        guessing at the spacing."""
+        line = QFrame()
+        line.setFrameShape(QFrame.Shape.VLine)
+        line.setFixedSize(1, 22)
+        line.setStyleSheet(f"background: {C.BORDER}; border: none;")
+        return line
 
     # -- the language select ---------------------------------------------------
 
@@ -2979,7 +3466,9 @@ class MainWindow(QMainWindow):
         lay.setSpacing(6)
 
         head = QHBoxLayout()
-        title = QLabel("Syllabus")
+        head.setSpacing(7)
+        head.addWidget(icon_label("list", 15, C.PRI))
+        title = QLabel("Grammar")
         title.setFont(font(12, True))
         title.setStyleSheet(f"color: {C.WHITE}; background: transparent;")
         head.addWidget(title)
@@ -3010,74 +3499,35 @@ class MainWindow(QMainWindow):
     # -- the speaking column ---------------------------------------------------
 
     def _build_centre(self, face_path: str) -> QWidget:
-        """The room the lesson happens in. The unit is one line at the top —
-        it is context, not content — and everything below it is the coaching on
-        the sentence just spoken."""
+        """The room the lesson happens in: the tutor's face, the coaching on
+        the sentence just spoken, and the controls. Which unit is running is
+        already marked in the Grammar column, so nothing repeats it here."""
         w = QWidget()
         w.setStyleSheet(f"background: {C.BG};")
         lay = QVBoxLayout(w)
         lay.setContentsMargins(18, 12, 18, 14)
         lay.setSpacing(10)
 
-        # One line: where we are, what it trains, how far in. The methods and
-        # the sentences are one click away in the unit sheet.
-        strip = QWidget()
-        strip.setObjectName("UnitStrip")
-        strip.setStyleSheet(f"QWidget#UnitStrip {{ {card_style(10)} }}")
-        strip.setCursor(Qt.CursorShape.PointingHandCursor)
-        strip.setToolTip("Click for this unit's sentences, words and methods")
-        sl = QVBoxLayout(strip)
-        sl.setContentsMargins(12, 7, 12, 8)
-        sl.setSpacing(4)
-
-        row = QHBoxLayout()
-        row.setSpacing(9)
-        self._unit_kicker = QLabel("")
-        self._unit_kicker.setFont(font(9, True))
-        self._unit_kicker.setStyleSheet(
-            f"color: {C.TEXT_DIM}; background: transparent; letter-spacing: 1px;")
-        row.addWidget(self._unit_kicker)
-        self._unit_title = QLabel("")
-        self._unit_title.setFont(font(12, True))
-        self._unit_title.setStyleSheet(f"color: {C.WHITE}; background: transparent;")
-        row.addWidget(self._unit_title)
-        self._unit_grammar = QLabel("")
-        self._unit_grammar.setFont(font(10))
-        self._unit_grammar.setStyleSheet(f"color: {C.PRI}; background: transparent;")
-        row.addWidget(self._unit_grammar)
-        row.addStretch()
-        self._unit_pct = QLabel("")
-        self._unit_pct.setFont(font(10, True))
-        self._unit_pct.setStyleSheet(f"color: {C.PRI}; background: transparent;")
-        row.addWidget(self._unit_pct)
-        sl.addLayout(row)
-
-        self._unit_bar = SoftBar(colour=C.PRI)
-        self._unit_bar.setFixedHeight(8)
-        sl.addWidget(self._unit_bar)
-        strip.mousePressEvent = lambda _e: self._open_current_unit()
-        lay.addWidget(strip)
-
-        # Whose turn it is.
         self.hud = VoiceVector(face_path, self._assistant_name)
-        self.hud.setFixedHeight(180)
+        self.hud.setFixedHeight(268)
         lay.addWidget(self.hud)
 
-        # The teaching itself.
         self._assistant = AssistantPanel()
         lay.addWidget(self._assistant, stretch=1)
 
         self._content_panel = self._build_content_panel()
         lay.addWidget(self._content_panel)
 
-        # The controls live here, not in the transcript column, so hiding the
-        # transcript never takes the microphone with it.
+        # The controls live here, not in the conversation column, so folding
+        # that column away never takes the microphone with it.
         lay.addLayout(self._build_controls())
         return w
 
     def _build_controls(self) -> QHBoxLayout:
         row = self._build_input_row()
-        self._interrupt_btn = QPushButton("Interrupt")
+        self._interrupt_btn = QPushButton("  Interrupt")
+        self._interrupt_btn.setIcon(icon("stop", 13, C.RED))
+        self._interrupt_btn.setIconSize(QSize(13, 13))
         self._interrupt_btn.setFixedHeight(36)
         self._interrupt_btn.setFont(font(11, True))
         self._interrupt_btn.setCursor(Qt.CursorShape.PointingHandCursor)
@@ -3091,6 +3541,7 @@ class MainWindow(QMainWindow):
         self._mute_btn.setFixedHeight(36)
         self._mute_btn.setFont(font(11, True))
         self._mute_btn.setCursor(Qt.CursorShape.PointingHandCursor)
+        self._mute_btn.setIconSize(QSize(15, 15))
         self._mute_btn.clicked.connect(self._toggle_mute)
         self._style_mute_btn()
         row.addWidget(self._mute_btn)
@@ -3119,10 +3570,12 @@ class MainWindow(QMainWindow):
         lay.setContentsMargins(14, 12, 14, 12)
         lay.setSpacing(10)
 
-        self._checklist = ChecklistStrip()
+        self._checklist = DictionaryPanel()
         lay.addWidget(self._checklist)
 
         hdr = QHBoxLayout()
+        hdr.setSpacing(7)
+        hdr.addWidget(icon_label("chat", 14, C.PRI))
         title = QLabel("Conversation")
         title.setFont(font(12, True))
         title.setStyleSheet(f"color: {C.WHITE}; background: transparent;")
@@ -3154,6 +3607,7 @@ class MainWindow(QMainWindow):
         self._input.setPlaceholderText("…or type your sentence")
         self._input.setFont(font(11))
         self._input.setFixedHeight(36)
+        self._input.setMinimumWidth(170)
         self._input.setStyleSheet(f"""
             QLineEdit {{
                 background: {C.PANEL}; color: {C.WHITE};
@@ -3203,9 +3657,10 @@ class MainWindow(QMainWindow):
         self._content_ts_lbl.setFont(font(9))
         self._content_ts_lbl.setStyleSheet(f"color: {C.TEXT_DIM}; background: transparent;")
         hdr.addWidget(self._content_ts_lbl)
-        dismiss = QPushButton("Close")
-        dismiss.setFont(font(9))
-        dismiss.setFixedHeight(24)
+        dismiss = QPushButton()
+        dismiss.setIcon(icon("close", 12, C.TEXT_MED))
+        dismiss.setIconSize(QSize(12, 12))
+        dismiss.setFixedSize(24, 24)
         dismiss.setCursor(Qt.CursorShape.PointingHandCursor)
         dismiss.setStyleSheet(btn_soft(8).replace("padding: 0 14px;", "padding: 0 10px;"))
         dismiss.clicked.connect(w.hide)
@@ -3227,7 +3682,7 @@ class MainWindow(QMainWindow):
         return w
 
     def _show_content(self, title: str, text: str):
-        """Slot — runs on the Qt main thread."""
+        """Slot - runs on the Qt main thread."""
         self._content_title_lbl.setText(title[:60])
         self._content_ts_lbl.setText(time.strftime("%H:%M"))
         self._content_display.setPlainText(text)
@@ -3268,10 +3723,6 @@ class MainWindow(QMainWindow):
 
         lay.addStretch()
 
-        hints = QLabel("F4 mute  ·  Esc interrupt  ·  F11 fullscreen")
-        hints.setFont(font(9))
-        hints.setStyleSheet(f"color: {C.TEXT_DIM}; background: transparent;")
-        lay.addWidget(hints)
         return w
 
     # -- the one-second poll ---------------------------------------------------
@@ -3279,7 +3730,7 @@ class MainWindow(QMainWindow):
     def _tick_clock(self):
         """Everything that changes by itself: the level, today's count, the unit
         strip, its sentences and the weak-point chips. One timer, one read of
-        the tutor's cached status — the widgets never talk to the plugin."""
+        the tutor's cached status - the widgets never talk to the plugin."""
         try:
             s = self.get_lesson_status() or {}
         except Exception:
@@ -3288,7 +3739,7 @@ class MainWindow(QMainWindow):
         self._fill_language_select()
 
         if s:
-            level, goal = s.get("level", "—"), s.get("goal", "")
+            level, goal = s.get("level", "-"), s.get("goal", "")
             self._level_pill.setText(
                 f"{level}  ·  {s.get('score', 0)}/100  →  {goal}")
             spoken = s.get("speak")
@@ -3312,37 +3763,6 @@ class MainWindow(QMainWindow):
                 else:
                     chip.hide()
 
-        unit = None
-        try:
-            for stage in (self.get_syllabus() or []):
-                for u in stage["units"]:
-                    if u.get("status") == "current":
-                        unit = u
-                        break
-                if unit:
-                    break
-        except Exception:
-            unit = None
-
-        if unit:
-            self._unit_kicker.setText(f"UNIT {unit['number']}/24")
-            self._unit_title.setText(unit["title"])
-            self._unit_grammar.setText("· " + ", ".join(unit.get("skills", [])))
-            prog = int(unit.get("progress", 0))
-            self._unit_pct.setText(f"{prog}%")
-            self._unit_bar.set_value(prog, "")
-            methods = [m["name"] for m in unit.get("methods", [])]
-            if methods:
-                self._unit_kicker.parentWidget().setToolTip(
-                    "Method: " + " → ".join(methods)
-                    + "  ·  click for sentences, words and details")
-        elif s:
-            self._unit_kicker.setText("STAGE REVIEW")
-            self._unit_title.setText(str(s.get("unit_title", "")))
-            self._unit_grammar.setText("· free conversation at your level")
-            prog = int(s.get("unit_progress", 0))
-            self._unit_pct.setText(f"{prog}%")
-            self._unit_bar.set_value(prog, "")
 
     def _build_quick_drawer(self) -> QWidget:
         """Floating panel shown when the header's gear is toggled."""
@@ -3366,10 +3786,12 @@ class MainWindow(QMainWindow):
         hdr.setStyleSheet(f"color: {C.WHITE}; background: transparent;")
         lay.addWidget(hdr)
 
-        settings_btn = QPushButton("Tutor settings")
+        settings_btn = QPushButton("  Tutor settings")
         settings_btn.setFixedHeight(38)
         settings_btn.setFont(font(11, True))
         settings_btn.setCursor(Qt.CursorShape.PointingHandCursor)
+        settings_btn.setIcon(icon("gear", 15, C.PANEL))
+        settings_btn.setIconSize(QSize(15, 15))
         settings_btn.setStyleSheet(btn_primary(12))
         settings_btn.clicked.connect(self._open_plugin_settings)
         lay.addWidget(settings_btn)
@@ -3396,10 +3818,12 @@ class MainWindow(QMainWindow):
 
         # Wake word: the mic stays local until the phrase is heard, so it is
         # opt-in and the button doubles as the download.
-        self._wake_btn = QPushButton("Wake word")
+        self._wake_btn = QPushButton("  Wake word")
         self._wake_btn.setFixedHeight(32)
         self._wake_btn.setFont(font(10))
         self._wake_btn.setCursor(Qt.CursorShape.PointingHandCursor)
+        self._wake_btn.setIcon(icon("mic", 14, C.TEXT_MED))
+        self._wake_btn.setIconSize(QSize(14, 14))
         self._wake_btn.setStyleSheet(btn_soft(10))
         self._wake_btn.clicked.connect(self._toggle_wake_word)
         lay.addWidget(self._wake_btn)
@@ -3523,7 +3947,7 @@ class MainWindow(QMainWindow):
     def _wake_state(self) -> dict:
         """Combined state for the two wake-word buttons. Readiness is a cheap,
         deterministic on-disk check now (see core.wake_word.is_ready), so there
-        is nothing to cache — the button never flickers to a stale value."""
+        is nothing to cache - the button never flickers to a stale value."""
         if self.wake_get_state:
             try:
                 s = self.wake_get_state()
@@ -3632,7 +4056,7 @@ class MainWindow(QMainWindow):
         self._customize_overlay = ov
 
     def _preview_ui_color(self, hex_color: str):
-        """Live preview — paints the whole interface the new colour (does NOT write to config)."""
+        """Live preview - paints the whole interface the new colour (does NOT write to config)."""
         old = current_palette()
         if apply_ui_accent(hex_color):
             retheme_all_widgets(old, current_palette())
@@ -3749,12 +4173,14 @@ class MainWindow(QMainWindow):
 
     def _style_mute_btn(self):
         if self._muted:
-            self._mute_btn.setText("Microphone off  ·  F4")
+            self._mute_btn.setText("  Microphone off")
+            self._mute_btn.setIcon(icon("mic-off", 15, C.RED))
             self._mute_btn.setStyleSheet(
                 btn_tone(C.RED, C.MUTED_GHO, C.MUTED_GHO, 12).replace(
                     "text-align: left;", "text-align: center;"))
         else:
-            self._mute_btn.setText("Microphone on  ·  F4")
+            self._mute_btn.setText("  Microphone on")
+            self._mute_btn.setIcon(icon("mic", 15, C.GREEN))
             self._mute_btn.setStyleSheet(
                 btn_tone(C.GREEN, C.GREEN_GHO, C.GREEN_GHO, 12).replace(
                     "text-align: left;", "text-align: center;"))
@@ -3947,8 +4373,13 @@ class LangVisUI:
     def wake_get_state(self, cb):
         self._win.wake_get_state = cb
 
+    def set_live_sentence(self, text: str, final: bool = False) -> None:
+        """Thread-safe: show what the learner is saying, as it is transcribed.
+        Called from the session's receive loop, so it goes through a signal."""
+        self._win._live_sig.emit(str(text)[:400], bool(final))
+
     def set_audio_level(self, level: float) -> None:
-        """Thread-safe: feed a 0.0–1.0 live audio level to the HUD waveform.
+        """Thread-safe: feed a 0.0-1.0 live audio level to the HUD waveform.
         Called from the audio threads; a plain float store is atomic under the
         GIL, so no signal/lock is needed for this cosmetic value."""
         try:

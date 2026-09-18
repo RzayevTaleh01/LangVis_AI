@@ -93,7 +93,7 @@ _LEVEL_FULL  = 2600.0
 
 
 def _pcm_level(samples) -> float:
-    """Map a block of int16 PCM samples to a 0.0–1.0 loudness level for the HUD
+    """Map a block of int16 PCM samples to a 0.0-1.0 loudness level for the HUD
     waveform. Returns 0.0 on empty/invalid input so it can never raise."""
     try:
         x = np.asarray(samples, dtype=np.float32)
@@ -170,7 +170,7 @@ TOOL_DECLARATIONS = [
         "description": (
             "Save a personal fact about the learner so lessons can use it: name, "
             "job, city, family, hobbies, interests, plans, why they are learning "
-            "the language. Call it silently — never announce it. Do NOT save "
+            "the language. Call it silently - never announce it. Do NOT save "
             "their grammar mistakes or their level; the tutor plugin tracks those. "
             "Values must be in English."
         ),
@@ -180,11 +180,11 @@ TOOL_DECLARATIONS = [
                 "category": {
                     "type": "STRING",
                     "description": (
-                        "identity — name, age, city, job, native language | "
-                        "preferences — likes, hobbies, favourite things | "
-                        "projects — work, studies, what they are building | "
-                        "relationships — family, friends, colleagues | "
-                        "wishes — goals, plans, dreams | notes — anything else"
+                        "identity - name, age, city, job, native language | "
+                        "preferences - likes, hobbies, favourite things | "
+                        "projects - work, studies, what they are building | "
+                        "relationships - family, friends, colleagues | "
+                        "wishes - goals, plans, dreams | notes - anything else"
                     ),
                 },
                 "key":   {"type": "STRING", "description": "Short snake_case key (e.g. job, favourite_food)"},
@@ -215,7 +215,7 @@ TOOL_DECLARATIONS = [
 
 class _ReconnectSignal(Exception):
     """Raised inside the session TaskGroup to force a clean, voluntary reconnect
-    (e.g. the learner picked a new voice — the voice is fixed at connect time,
+    (e.g. the learner picked a new voice - the voice is fixed at connect time,
     so the session must be rebuilt).
 
     Carries `keep_context`: True for an ordinary rebuild, where the stored
@@ -489,8 +489,8 @@ class LangVisLive:
                              max_wait: float = 45.0) -> None:
         """Same channel, but it waits for a gap first.
 
-        A correction that lands while the tutor is still speaking — or while the
-        learner is trying to repeat a sentence — is an interruption, which is
+        A correction that lands while the tutor is still speaking - or while the
+        learner is trying to repeat a sentence - is an interruption, which is
         the fastest way to make a lesson unbearable. This holds the note until
         nothing is being spoken, nothing is queued, and the learner has been
         quiet briefly. If that moment never comes within max_wait the note is
@@ -519,7 +519,7 @@ class LangVisLive:
                 # mistake is already in their progress file and on the focus
                 # list, and speaking into their turn is what makes the tutor
                 # answer itself.
-                print("[PluginSay] the floor stayed with the learner — note dropped")
+                print("[PluginSay] the floor stayed with the learner - note dropped")
                 return
             try:
                 await self.session.send_client_content(
@@ -547,13 +547,13 @@ class LangVisLive:
 
     def _on_voice_change(self):
         """The voice is baked into the session at connect time, so a rebuild is
-        required — and without the resumption handle, since resuming restores
+        required - and without the resumption handle, since resuming restores
         the server's session state and would appear to ignore the new voice."""
         self.request_reconnect(keep_context=False, reason="new voice")
 
     def _on_audio_device_change(self):
         """Both audio streams are opened inside the session TaskGroup, so they
-        can only be re-opened by rebuilding it — but the lesson is kept."""
+        can only be re-opened by rebuilding it - but the lesson is kept."""
         self.request_reconnect(keep_context=True, reason="audio device")
 
     async def _watch_reconnect(self):
@@ -609,7 +609,7 @@ class LangVisLive:
         self.set_speaking(False)
         if self._turn_done_event:
             self._turn_done_event.clear()
-        self.ui.write_log("SYS: Interrupted — listening...")
+        self.ui.write_log("SYS: Interrupted - listening...")
 
     def speak(self, text: str):
         if not self._loop or not self.session:
@@ -636,7 +636,7 @@ class LangVisLive:
 
         now      = datetime.now()
         time_ctx = (f"[CURRENT DATE & TIME]\nRight now it is: "
-                    f"{now.strftime('%A, %B %d, %Y — %I:%M %p')}\n\n")
+                    f"{now.strftime('%A, %B %d, %Y - %I:%M %p')}\n\n")
         identity_ctx = (
             f"[IDENTITY]\nYour name is {self._asst_name}. Always refer to yourself as "
             f"{self._asst_name}.\n"
@@ -862,6 +862,12 @@ class LangVisLive:
                                 in_buf.append(txt)
                                 self._last_user_speech = time.monotonic()
                                 self._awaiting_answer = False
+                                # On screen while they are still speaking: the
+                                # analysis needs a second or two, and a blank
+                                # panel in that gap reads as "it did not hear
+                                # me". The marked-up version replaces this in
+                                # place when it arrives.
+                                self.ui.set_live_sentence(" ".join(in_buf))
 
                         if sc.turn_complete:
                             if self._turn_done_event:
@@ -874,6 +880,7 @@ class LangVisLive:
 
                             full_in = " ".join(in_buf).strip()
                             if full_in:
+                                self.ui.set_live_sentence(full_in, final=True)
                                 self.ui.write_log(f"You: {full_in}")
                                 self._session_log.append(f"Learner: {full_in}")
                                 # The tutor's analyser. It queues and returns;
@@ -971,8 +978,8 @@ class LangVisLive:
     # ── Starting the lesson ─────────────────────────────────────────────────
 
     async def _start_lesson(self) -> None:
-        """One message that opens the lesson. Everything it needs — level,
-        unit, focus skills, words to reuse — is already in the system prompt,
+        """One message that opens the lesson. Everything it needs - level,
+        unit, focus skills, words to reuse - is already in the system prompt,
         so there is no tool round-trip and the tutor starts talking at once."""
         await asyncio.sleep(0.4)
         if not self.session:
@@ -1077,7 +1084,7 @@ class LangVisLive:
 
                     print("[LangVis] Connected.")
                     if _resumed_with:
-                        self.ui.write_log("SYS: Reconnected — lesson restored.")
+                        self.ui.write_log("SYS: Reconnected - lesson restored.")
 
                     if self._wake_enabled:
                         self._ensure_wake_detector()
@@ -1127,8 +1134,8 @@ class LangVisLive:
                     "resum" in str(e).lower() or "handle" in str(e).lower()
                     or "INVALID_ARGUMENT" in str(e) or "NOT_FOUND" in str(e)
                 ):
-                    print("[LangVis] 🔗 Resumption handle rejected — fresh session")
-                    self.ui.write_log("SYS: Could not restore the lesson — starting fresh.")
+                    print("[LangVis] 🔗 Resumption handle rejected - fresh session")
+                    self.ui.write_log("SYS: Could not restore the lesson - starting fresh.")
                     self._resume_handle = None
                     self._conn_backoff = 0
                     continue
@@ -1151,16 +1158,16 @@ class LangVisLive:
                     or "Unknown name" in err_str or "unexpected keyword" in err_str
                 ):
                     self._enhanced_live = False
-                    self.ui.write_log("SYS: Proactive audio unavailable — reconnecting.")
+                    self.ui.write_log("SYS: Proactive audio unavailable - reconnecting.")
                     continue
 
                 if "API key not valid" in err_str or "1007" in err_str:
-                    self.ui.write_log("ERR: API key invalid — please re-enter your key.")
+                    self.ui.write_log("ERR: API key invalid - please re-enter your key.")
                     self.ui.set_state("SLEEPING")
                     self.ui.prompt_reconfig()
                     while not self.ui._win._ready:
                         await asyncio.sleep(1)
-                    print("[LangVis] New API key saved — reconnecting...")
+                    print("[LangVis] New API key saved - reconnecting...")
                     self._conn_backoff = 3
                     continue
 
